@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Data Guru</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-admin.html" class="nav-item">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="kelola-soal.html" class="nav-item">
+          <i data-lucide="file-text"></i>
+          <span>Kelola Soal</span>
+        </a>
+        <a href="kelola-ujian.html" class="nav-item">
+          <i data-lucide="clock"></i>
+          <span>Kelola Ujian</span>
+        </a>
+        <a href="laporan.html" class="nav-item">
+          <i data-lucide="clipboard-list"></i>
+          <span>Laporan Nilai</span>
+        </a>
+        <a href="ranking.html?mode=admin" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+        <a href="kelola-siswa.html" class="nav-item">
+          <i data-lucide="users"></i>
+          <span>Data Siswa</span>
+        </a>
+        <a href="kelola-guru.html" class="nav-item active">
+          <i data-lucide="graduation-cap"></i>
+          <span>Data Guru</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="ubah-password.html" class="nav-item">
+          <i data-lucide="key-round"></i>
+          <span>Ubah Password</span>
+        </a>
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">Admin</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="flex justify-between items-center mb-24 flex-wrap gap-16">
+          <div>
+            <h1 class="page-title">Data Guru</h1>
+            <p class="text-muted hint">Kelola akun admin/guru (guru yang mengampu mata pelajaran). Guru bisa login, menambah soal, membuat ujian, dan melihat laporan.</p>
+          </div>
+          <button class="btn btn-secondary" id="addGuruBtn">
+            <i data-lucide="user-plus"></i>
+            <span>Tambah Guru</span>
+          </button>
+        </div>
+
+        <div id="loadingBox" class="loading"><span class="spinner"></span></div>
+
+        <div id="emptyState" class="card empty-state hidden">
+          <i data-lucide="inbox"></i>
+          <p class="hint">Belum ada data guru.</p>
+        </div>
+
+        <div class="card table-wrapper" id="tableCard" style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>Nama</th>
+                <th>Email</th>
+                <th>Mata Pelajaran</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="guruTableBody"></tbody>
+          </table>
+        </div>
+
+        <div id="guruCardList"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal tambah guru -->
+  <div class="modal-overlay" id="guruAddModal">
+    <div class="modal">
+      <h3 class="modal-title">Tambah Guru</h3>
+      <p class="modal-text">Akun baru berperan admin. Guru dapat masuk dengan email &amp; password ini.</p>
+
+      <div class="form-group mb-16">
+        <label class="label" for="guruNama">Nama Lengkap</label>
+        <input type="text" id="guruNama" class="input" placeholder="Nama guru" maxlength="100">
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="guruEmail">Email Login</label>
+        <input type="email" id="guruEmail" class="input" placeholder="guru@simu.local">
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="guruPassword">Password</label>
+        <input type="password" id="guruPassword" class="input" placeholder="Minimal 6 karakter">
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="guruSubjectId">Mata Pelajaran yang Diampu</label>
+        <select id="guruSubjectId" class="select"></select>
+      </div>
+
+      <div id="guruAddError" class="error-message hidden mb-16"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="guruAddCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="guruAddConfirmBtn">
+          <span id="guruAddConfirmText">Buat Akun</span>
+          <span id="guruAddConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal reset password -->
+  <div class="modal-overlay" id="guruResetModal">
+    <div class="modal">
+      <h3 class="modal-title">Reset Password Guru</h3>
+      <p class="modal-text">Ganti password akun <b id="guruResetName"></b>.</p>
+      <div class="form-group mb-24">
+        <label class="label" for="guruResetPassword">Password Baru</label>
+        <input type="password" id="guruResetPassword" class="input" placeholder="Minimal 6 karakter">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="guruResetCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="guruResetConfirmBtn">
+          <span id="guruResetConfirmText">Simpan Password</span>
+          <span id="guruResetConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal hapus guru -->
+  <div class="modal-overlay" id="guruDeleteModal">
+    <div class="modal">
+      <h3 class="modal-title">Hapus Guru</h3>
+      <p class="modal-text" id="guruDeleteText"></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="guruDeleteCancelBtn">Batal</button>
+        <button class="btn btn-danger btn-sm" id="guruDeleteConfirmBtn">
+          <span id="guruDeleteConfirmText">Ya, Hapus</span>
+          <span id="guruDeleteConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/guru.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+Format: NIS;Nama;Kelas;Jurusan;Password
+(Kelas & Jurusan boleh dikosongkan. Email login = NIS@simu.local)
+
+12345;Budi Santoso;XI TJKT;TJKT;12345
+12346;Ani Rahma;XI AKL;AKL;12346
+12347;Rizky Pratama;X TJKT;TJKT;rizky123
+12348;Siti Aminah;;;siti123

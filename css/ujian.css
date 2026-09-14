@@ -1,0 +1,206 @@
+/* ============================================================
+   Ujian - halaman pengerjaan ujian siswa
+   ============================================================ */
+
+.exam-body {
+  min-height: 100vh;
+  background-color: var(--black-50);
+}
+
+/* ---------- Header sticky ---------- */
+.exam-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--white);
+  border-bottom: 1px solid var(--black-100);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.exam-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.exam-header-left h2 {
+  font-size: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exam-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.timer-badge {
+  font-size: 16px;
+  font-weight: 700;
+  background-color: var(--black-900);
+  color: var(--white);
+}
+
+.timer-badge.danger {
+  background-color: var(--error);
+  animation: blink 1s step-start infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.5; }
+}
+
+/* ---------- Konten ---------- */
+.exam-container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.exam-card {
+  padding: 24px;
+}
+
+.exam-question {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.exam-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exam-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid var(--black-100);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.exam-option:hover {
+  background-color: var(--black-50);
+}
+
+.exam-option.selected {
+  border-color: var(--black-900);
+  background-color: var(--black-50);
+}
+
+.exam-option .option-key {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--black-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.exam-option.selected .option-key {
+  background-color: var(--black-900);
+  color: var(--white);
+  border-color: var(--black-900);
+}
+
+.exam-option .option-text {
+  font-size: 16px;
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* ---------- Navigasi ---------- */
+.exam-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+/* ---------- Peta soal ---------- */
+.exam-question-map {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 32px;
+}
+
+.qmap-item {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--black-100);
+  background-color: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.qmap-item.current {
+  border-color: var(--black-900);
+  background-color: var(--black-900);
+  color: var(--white);
+}
+
+.qmap-item.answered {
+  background-color: var(--black-100);
+  border-color: var(--black-100);
+}
+
+.qmap-item.current.answered {
+  background-color: var(--black-900);
+  color: var(--white);
+}
+
+/* ---------- Responsif ---------- */
+@media (max-width: 800px) {
+  .exam-header {
+    padding: 10px 12px;
+  }
+
+  .exam-header-left h2 {
+    max-width: 45vw;
+  }
+
+  .exam-header-right {
+    gap: 8px;
+  }
+
+  .exam-container {
+    padding: 16px 12px 48px;
+  }
+
+  .exam-card {
+    padding: 16px;
+  }
+
+  .exam-question {
+    font-size: 16px;
+  }
+
+  #backBtn span {
+    display: none;
+  }
+}

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Data Siswa</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-admin.html" class="nav-item">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="kelola-soal.html" class="nav-item">
+          <i data-lucide="file-text"></i>
+          <span>Kelola Soal</span>
+        </a>
+        <a href="kelola-ujian.html" class="nav-item">
+          <i data-lucide="clock"></i>
+          <span>Kelola Ujian</span>
+        </a>
+        <a href="laporan.html" class="nav-item">
+          <i data-lucide="clipboard-list"></i>
+          <span>Laporan Nilai</span>
+        </a>
+        <a href="ranking.html?mode=admin" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+        <a href="kelola-siswa.html" class="nav-item active">
+          <i data-lucide="users"></i>
+          <span>Data Siswa</span>
+        </a>
+        <a href="kelola-guru.html" class="nav-item">
+          <i data-lucide="graduation-cap"></i>
+          <span>Data Guru</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="ubah-password.html" class="nav-item">
+          <i data-lucide="key-round"></i>
+          <span>Ubah Password</span>
+        </a>
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">Admin</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="flex justify-between items-center mb-24 flex-wrap gap-16">
+          <div>
+            <h1 class="page-title">Data Siswa</h1>
+            <p class="text-muted hint">Lihat dan atur akun siswa terdaftar</p>
+          </div>
+          <button class="btn btn-secondary" id="importSiswaBtn">
+            <i data-lucide="upload"></i>
+            <span>Import Siswa</span>
+          </button>
+        </div>
+
+        <div id="loadingBox" class="loading"><span class="spinner"></span></div>
+
+        <div id="emptyState" class="card empty-state hidden">
+          <i data-lucide="inbox"></i>
+          <p class="hint">Belum ada data siswa.</p>
+        </div>
+
+        <div class="card table-wrapper" id="tableCard" style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>Nama</th>
+                <th>NIS</th>
+                <th>Email</th>
+                <th>Kelas</th>
+                <th>Jurusan</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="siswaTableBody"></tbody>
+          </table>
+        </div>
+
+        <div id="siswaCardList"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal import siswa massal -->
+  <div class="modal-overlay" id="importSiswaModal">
+    <div class="modal modal-wide">
+      <h3 class="modal-title">Import Siswa</h3>
+      <p class="modal-text">Setiap baris: <b>NIS;Nama;Kelas;Jurusan;Password</b> (Kelas & Jurusan boleh kosong). NIS menjadi email login otomatis (<b>NIS@simu.local</b> & NIS sebagai NIS).</p>
+
+      <div class="form-group mb-16">
+        <label class="label" for="siswaArea">Isi Data (format SIMU)</label>
+        <textarea id="siswaArea" class="input import-textarea" placeholder="12345;Budi Santoso;XI TJKT;TJKT;12345&#10;12346;Ani Rahma;XI AKL;AKL;12346"></textarea>
+      </div>
+
+      <input type="file" id="siswaFile" accept=".csv,.txt" class="hidden">
+      <button class="btn btn-secondary btn-sm mb-16" id="siswaFileBtn">
+        <i data-lucide="file-up"></i><span>Muat dari file CSV/TXT</span>
+      </button>
+
+      <div id="siswaPreview" class="card import-guide mb-16"></div>
+      <div id="siswaError" class="error-message hidden mb-16"></div>
+      <div id="siswaResult" class="card import-guide mb-16 hidden" style="max-height:220px;overflow:auto;"></div>
+
+      <div class="modal-actions flex-wrap">
+        <button class="btn btn-secondary btn-sm" id="siswaExampleBtn">
+          <i data-lucide="download"></i><span>Unduh Contoh</span>
+        </button>
+        <button class="btn btn-secondary btn-sm" id="siswaCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="siswaImportBtn" disabled>
+          <span id="siswaImportText">Buat Akun</span>
+          <span id="siswaImportLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <h3 class="modal-title">Atur Kelas & Jurusan</h3>
+      <div class="form-group mb-16">
+        <label class="label" for="editNama">Nama</label>
+        <input type="text" id="editNama" class="input" readonly>
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="editKelas">Kelas</label>
+        <select id="editKelas" class="select"></select>
+      </div>
+      <div class="form-group mb-24">
+        <label class="label" for="editJurusan">Jurusan</label>
+        <select id="editJurusan" class="select"></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="editCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="editSaveBtn">
+          <span id="editSaveText">Simpan</span>
+          <span id="editSaveLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let editUserId = null;
+    let existingEmails = new Set();
+    let parsedSiswaRows = [];
+
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard('admin');
+      if (!profile) return;
+
+      document.getElementById('userName').textContent = profile.nama || 'Admin';
+
+      // Sidebar
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      hamburgerBtn.addEventListener('click', function () {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+      document.getElementById('logoutBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        logout();
+      });
+
+      // Load referensi kelas & jurusan
+      const [classRes, majorRes] = await Promise.all([
+        supabaseClient.from('classes').select('id, nama').order('nama'),
+        supabaseClient.from('majors').select('id, nama').order('nama')
+      ]);
+
+      const classMap = {};
+      const majorMap = {};
+      (classRes.data || []).forEach(function (c) { classMap[c.id] = c.nama; });
+      (majorRes.data || []).forEach(function (m) { majorMap[m.id] = m.nama; });
+
+      // Isi select edit modal
+      const editKelas = document.getElementById('editKelas');
+      const editJurusan = document.getElementById('editJurusan');
+      const defKelas = document.createElement('option');
+      defKelas.value = '';
+      defKelas.textContent = 'Tidak ditentukan';
+      editKelas.appendChild(defKelas);
+      (classRes.data || []).forEach(function (c) {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.nama;
+        editKelas.appendChild(opt);
+      });
+      const defJur = document.createElement('option');
+      defJur.value = '';
+      defJur.textContent = 'Tidak ditentukan';
+      editJurusan.appendChild(defJur);
+      (majorRes.data || []).forEach(function (m) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.nama;
+        editJurusan.appendChild(opt);
+      });
+
+      // Load siswa
+      const { data: siswaList } = await supabaseClient
+        .from('users')
+        .select('id, nama, nis, email, class_id, major_id')
+        .eq('role', 'siswa')
+        .order('nama');
+
+      document.getElementById('loadingBox').classList.add('hidden');
+
+      (siswaList || []).forEach(function (s) {
+        if (s.email) existingEmails.add(s.email.toLowerCase());
+      });
+
+      if (!siswaList || siswaList.length === 0) {
+        document.getElementById('emptyState').classList.remove('hidden');
+        lucide.createIcons();
+        return;
+      }
+
+      document.getElementById('tableCard').style.display = 'block';
+      const tbody = document.getElementById('siswaTableBody');
+      const cardList = document.getElementById('siswaCardList');
+
+      siswaList.forEach(function (s) {
+        // Tabel PC
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td class="font-medium">' + escapeHtml(s.nama || '-') + '</td>' +
+          '<td>' + escapeHtml(s.nis || '-') + '</td>' +
+          '<td class="hint">' + escapeHtml(s.email || '-') + '</td>' +
+          '<td>' + escapeHtml(classMap[s.class_id] || '-') + '</td>' +
+          '<td>' + escapeHtml(majorMap[s.major_id] || '-') + '</td>' +
+          '<td><button class="btn btn-secondary btn-sm btn-edit-siswa" data-id="' + s.id + '" data-nama="' + escapeHtml(s.nama || '') + '" data-class="' + (s.class_id || '') + '" data-major="' + (s.major_id || '') + '"><i data-lucide="pencil"></i> Atur</button></td>';
+        tbody.appendChild(tr);
+
+        // Card HP
+        const card = document.createElement('div');
+        card.className = 'card card-mobile soal-card';
+        card.innerHTML =
+          '<p class="font-medium">' + escapeHtml(s.nama || '-') + '</p>' +
+          '<span class="hint">NIS: ' + escapeHtml(s.nis || '-') + '</span>' +
+          '<div class="flex gap-8">' +
+          '  <span class="badge badge-neutral">' + escapeHtml(classMap[s.class_id] || '-') + '</span>' +
+          '  <span class="badge badge-neutral">' + escapeHtml(majorMap[s.major_id] || '-') + '</span>' +
+          '</div>' +
+          '<button class="btn btn-secondary btn-sm btn-edit-siswa" data-id="' + s.id + '" data-nama="' + escapeHtml(s.nama || '') + '" data-class="' + (s.class_id || '') + '" data-major="' + (s.major_id || '') + '"><i data-lucide="pencil"></i> Atur</button>';
+        cardList.appendChild(card);
+      });
+
+      document.querySelectorAll('.btn-edit-siswa').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          editUserId = btn.getAttribute('data-id');
+          document.getElementById('editNama').value = btn.getAttribute('data-nama');
+          editKelas.value = btn.getAttribute('data-class');
+          editJurusan.value = btn.getAttribute('data-major');
+          document.getElementById('editModal').classList.add('active');
+        });
+      });
+
+      lucide.createIcons();
+    });
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text == null ? '' : String(text);
+      return div.innerHTML;
+    }
+
+    document.getElementById('editCancelBtn').addEventListener('click', function () {
+      document.getElementById('editModal').classList.remove('active');
+      editUserId = null;
+    });
+
+    document.getElementById('editModal').addEventListener('click', function (e) {
+      if (e.target === this) {
+        this.classList.remove('active');
+        editUserId = null;
+      }
+    });
+
+    document.getElementById('editSaveBtn').addEventListener('click', async function () {
+      if (!editUserId) return;
+      const btn = this;
+      const text = document.getElementById('editSaveText');
+      const loader = document.getElementById('editSaveLoader');
+
+      btn.disabled = true;
+      text.textContent = 'Menyimpan...';
+      loader.classList.remove('hidden');
+
+      const { error } = await supabaseClient
+        .from('users')
+        .update({
+          class_id: document.getElementById('editKelas').value || null,
+          major_id: document.getElementById('editJurusan').value || null
+        })
+        .eq('id', editUserId);
+
+      btn.disabled = false;
+      text.textContent = 'Simpan';
+      loader.classList.add('hidden');
+
+      if (error) {
+        showSnackbar('Gagal memperbarui: ' + error.message, 'error');
+        return;
+      }
+
+      document.getElementById('editModal').classList.remove('active');
+      editUserId = null;
+      showSnackbar('Data siswa berhasil diperbarui.', 'success');
+      setTimeout(function () { location.reload(); }, 600);
+    });
+
+    // ============================================================
+    // IMPORT SISWA MASSAL
+    // ============================================================
+    function parseImportSiswa(text) {
+      const lines = (text || '').split(/\r?\n/);
+      const rows = [];
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+        if (line.startsWith('#')) continue;
+        const parts = line.split(/[;|]/).map(function (p) { return p.trim(); });
+        rows.push({
+          nis: parts[0] || '',
+          nama: parts[1] || '',
+          class_name: parts[2] || '',
+          major_name: parts[3] || '',
+          password: parts[4] || ''
+        });
+      }
+      return rows;
+    }
+
+    function renderSiswaPreview() {
+      const text = document.getElementById('siswaArea').value;
+      const preview = document.getElementById('siswaPreview');
+      const importBtn = document.getElementById('siswaImportBtn');
+      const errEl = document.getElementById('siswaError');
+
+      errEl.classList.add('hidden');
+      document.getElementById('siswaResult').classList.add('hidden');
+
+      parsedSiswaRows = parseImportSiswa(text);
+
+      if (parsedSiswaRows.length === 0) {
+        preview.innerHTML = '<p class="hint">Belum ada data untuk diimport.</p>';
+        importBtn.disabled = true;
+        return;
+      }
+
+      let valid = 0;
+      let dup = 0;
+      let invalid = 0;
+      const seen = new Set();
+
+      parsedSiswaRows.forEach(function (r) {
+        if (!r.nis || !r.nama || !r.password) { invalid++; return; }
+        if (r.password.length < 6) { invalid++; return; }
+        const email = r.nis.toLowerCase() + '@simu.local';
+        if (existingEmails.has(email) || seen.has(email)) { dup++; return; }
+        seen.add(email);
+        valid++;
+      });
+
+      preview.innerHTML =
+        '<p><b>' + parsedSiswaRows.length + '</b> baris terbaca.</p>' +
+        '<p class="hint">' + valid + ' siap dibuat, ' + dup + ' sudah terdaftar, ' + invalid + ' tidak lengkap.</p>';
+
+      importBtn.disabled = valid === 0;
+    }
+
+    document.getElementById('siswaArea').addEventListener('input', renderSiswaPreview);
+
+    document.getElementById('importSiswaBtn').addEventListener('click', function () {
+      document.getElementById('siswaArea').value = '';
+      renderSiswaPreview();
+      document.getElementById('importSiswaModal').classList.add('active');
+    });
+
+    document.getElementById('siswaCancelBtn').addEventListener('click', function () {
+      document.getElementById('importSiswaModal').classList.remove('active');
+    });
+
+    document.getElementById('importSiswaModal').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('active');
+    });
+
+    document.getElementById('siswaFileBtn').addEventListener('click', function () {
+      document.getElementById('siswaFile').click();
+    });
+
+    document.getElementById('siswaFile').addEventListener('change', function () {
+      const file = this.files && this.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        document.getElementById('siswaArea').value = ev.target.result;
+        renderSiswaPreview();
+      };
+      reader.readAsText(file);
+      this.value = '';
+    });
+
+    document.getElementById('siswaExampleBtn').addEventListener('click', function () {
+      const sample =
+        '12345;Budi Santoso;XI TJKT;TJKT;12345\n' +
+        '12346;Ani Rahma;XI AKL;AKL;\n' +
+        '12347;Rizky Pratama;X TJKT;TJKT;rizky123';
+      const blob = new Blob([sample], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'contoh-format-siswa-simu.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('siswaImportBtn').addEventListener('click', async function () {
+      const errEl = document.getElementById('siswaError');
+      const btn = this;
+      const btnText = document.getElementById('siswaImportText');
+      const btnLoader = document.getElementById('siswaImportLoader');
+
+      const payload = parsedSiswaRows.map(function (r) {
+        return { nis: r.nis, nama: r.nama, class_name: r.class_name, major_name: r.major_name, password: r.password };
+      });
+
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+      btnText.textContent = 'Membuat akun...';
+      btnLoader.classList.remove('hidden');
+
+      const { data, error } = await supabaseClient.rpc('create_students', { data: payload });
+
+      btn.disabled = false;
+      btnText.textContent = 'Buat Akun';
+      btnLoader.classList.add('hidden');
+
+      if (error) {
+        showSnackbar('Gagal import: ' + error.message, 'error');
+        errEl.textContent = 'Fungsi create_students belum tersedia. Jalankan sql/08-fase6-import-siswa.sql di Supabase SQL Editor dulu.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      const ok = (data || []).filter(function (r) { return r.sukses; }).length;
+      const failed = (data || []).filter(function (r) { return !r.sukses; });
+      const resEl = document.getElementById('siswaResult');
+      resEl.classList.remove('hidden');
+      resEl.innerHTML =
+        '<p class="mb-8"><b>' + ok + ' akun berhasil dibuat.</b></p>' +
+        (failed.length > 0
+          ? '<ul class="hint-list">' + failed.map(function (f) {
+              return '<li><span class="hint">' + escapeHtml(f.email) + ' - ' + escapeHtml(f.pesan) + '</span></li>';
+            }).join('') + '</ul>'
+          : '')
+        ;
+
+      showSnackbar(ok + ' siswa berhasil diimport.', 'success');
+
+      // update existingEmails & segment list baru
+      (data || []).forEach(function (r) {
+        if (r.sukses) existingEmails.add(r.email.toLowerCase());
+      });
+      document.getElementById('siswaArea').value = '';
+      parsedSiswaRows = [];
+      renderSiswaPreview();
+      setTimeout(function () { location.reload(); }, 900);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Kelola Soal</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-admin.html" class="nav-item">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="kelola-soal.html" class="nav-item active">
+          <i data-lucide="file-text"></i>
+          <span>Kelola Soal</span>
+        </a>
+        <a href="kelola-ujian.html" class="nav-item">
+          <i data-lucide="clock"></i>
+          <span>Kelola Ujian</span>
+        </a>
+        <a href="laporan.html" class="nav-item">
+          <i data-lucide="clipboard-list"></i>
+          <span>Laporan Nilai</span>
+        </a>
+        <a href="ranking.html?mode=admin" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+        <a href="kelola-siswa.html" class="nav-item">
+          <i data-lucide="users"></i>
+          <span>Data Siswa</span>
+        </a>
+        <a href="kelola-guru.html" class="nav-item">
+          <i data-lucide="graduation-cap"></i>
+          <span>Data Guru</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="ubah-password.html" class="nav-item">
+          <i data-lucide="key-round"></i>
+          <span>Ubah Password</span>
+        </a>
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">Admin</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="flex justify-between items-center mb-24 flex-wrap gap-16">
+          <div>
+            <h1 class="page-title">Kelola Soal</h1>
+            <p class="text-muted hint">Kelola bank soal ujian</p>
+          </div>
+          <div class="flex gap-12 flex-wrap">
+            <button class="btn btn-danger" id="deleteAllBtn">
+              <i data-lucide="trash-2"></i>
+              <span>Hapus Semua</span>
+            </button>
+            <button class="btn btn-secondary" id="exportBtn">
+              <i data-lucide="download"></i>
+              <span>Export</span>
+            </button>
+            <button class="btn btn-secondary" id="importBtn">
+              <i data-lucide="upload"></i>
+              <span>Import Soal</span>
+            </button>
+            <a href="form-soal.html" class="btn btn-primary">
+              <i data-lucide="plus"></i>
+              <span>Tambah Soal</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="card mb-24">
+          <div class="flex items-center gap-16 filter-bar">
+            <label class="label" for="filterMapel">Mata Pelajaran</label>
+            <select id="filterMapel" class="select filter-select">
+              <option value="">Semua Mapel</option>
+            </select>
+            <label class="label" for="filterTopik">Topik</label>
+            <select id="filterTopik" class="select filter-select">
+              <option value="">Semua Topik</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card mb-24">
+          <div class="flex justify-between items-center mb-16 flex-wrap gap-16">
+            <h2 class="mb-0">Kelola Topik</h2>
+            <span class="hint">Kelompokkan soal per topik dalam mapel</span>
+          </div>
+          <div class="flex items-center gap-16 mb-16 flex-wrap">
+            <label class="label" for="topicSubject">Mata Pelajaran</label>
+            <select id="topicSubject" class="select filter-select">
+              <option value="">Pilih Mapel</option>
+            </select>
+          </div>
+          <div id="topicMgmtBody">
+            <p class="hint">Pilih mata pelajaran untuk melihat daftar topik.</p>
+          </div>
+          <div class="flex gap-12 mt-16">
+            <input type="text" id="newTopicName" class="input input-grow" placeholder="Nama topik baru, misal: Routing Dasar">
+            <button class="btn btn-secondary btn-sm btn-nowrap" id="addTopicBtn">+ Tambah Topik</button>
+          </div>
+        </div>
+
+        <div id="loadingBox" class="loading">
+          <span class="spinner"></span>
+        </div>
+
+        <div id="emptyState" class="card empty-state hidden">
+          <i data-lucide="inbox"></i>
+          <p class="hint">Belum ada soal. Klik "Tambah Soal" untuk membuat soal pertama.</p>
+        </div>
+
+        <!-- Tabel (PC) -->
+        <div class="card table-wrapper" id="tableCard">
+          <table id="soalTable">
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Pertanyaan</th>
+                <th>Mapel</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="soalTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Card list (HP) -->
+        <div id="soalCardList"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal hapus semua soal (sesuai filter) -->
+  <div class="modal-overlay" id="deleteAllModal">
+    <div class="modal">
+      <h3 class="modal-title">Hapus Semua Soal</h3>
+      <p class="modal-text" id="deleteAllModalText"></p>
+      <p class="modal-text hint">Jumlah soal yang akan dihapus: <strong id="deleteAllCount">0</strong></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="deleteAllCancelBtn">Batal</button>
+        <button class="btn btn-danger btn-sm" id="deleteAllConfirmBtn">
+          <span id="deleteAllConfirmText">Ya, Hapus Semua</span>
+          <span id="deleteAllConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal hapus topik -->
+  <div class="modal-overlay" id="topicDeleteModal">
+    <div class="modal">
+      <h3 class="modal-title">Hapus Topik</h3>
+      <p class="modal-text" id="topicDeleteText"></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="topicDeleteCancelBtn">Batal</button>
+        <button class="btn btn-danger btn-sm" id="topicDeleteConfirmBtn">
+          <span id="topicDeleteConfirmText">Ya, Hapus</span>
+          <span id="topicDeleteConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal edit topik -->
+  <div class="modal-overlay" id="topicEditModal">
+    <div class="modal">
+      <h3 class="modal-title">Edit Topik</h3>
+      <div class="form-group mb-16">
+        <label class="label" for="topicEditName">Nama Topik</label>
+        <input type="text" id="topicEditName" class="input" placeholder="Nama topik" maxlength="100">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="topicEditCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="topicEditConfirmBtn">
+          <span id="topicEditConfirmText">Simpan</span>
+          <span id="topicEditConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <!-- Modal import soal -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal modal-wide">
+      <h3 class="modal-title">Import Soal</h3>
+      <p class="modal-text">Tempel soal sesuai format di bawah (soal dipisah baris kosong). <b>Format bebas juga didukung</b>: rapat tanpa enter, nomor "Pertanyaan 1?"/"No.3"/"1.", opsi "A."/"A)"/"(A)", jawaban "Jawaban: A"/"Jawaban = A"/"Kunci: A"/"Answer: A". Kalimat pembuka seperti "Berikut adalah..." otomatis diabaikan. Untuk <b>soal esai</b> tambahkan baris <b>"Jenis: Esai"</b> (tanpa pilihan A-D). Blok kode pakai pembatas ``` di tiap sisinya.</p>
+
+      <div class="form-group mb-16">
+        <label class="label" for="importSubject">Mata Pelajaran</label>
+        <select id="importSubject" class="select">
+          <option value="">Pilih Mata Pelajaran</option>
+        </select>
+      </div>
+
+      <div class="form-group mb-16">
+        <label class="label" for="importTopic">Topik (opsional)</label>
+        <select id="importTopic" class="select">
+          <option value="">(Pilih Mapel dulu)</option>
+        </select>
+        <p class="hint">Topik ini dipakai untuk semua soal, atau tulis baris "Topik: Nama" di tiap soal untuk pengecualian.</p>
+      </div>
+
+      <div class="form-group mb-16">
+        <label class="label" for="importArea">Isi Soal (format SIMU)</label>
+        <textarea id="importArea" class="input import-textarea" placeholder="Pertanyaan pertama?&#10;A. Pilihan A&#10;B. Pilihan B&#10;C. Pilihan C&#10;D. Pilihan D&#10;Jawaban: A&#10;&#10;Pertanyaan kedua?&#10;..."></textarea>
+      </div>
+
+      <div class="card import-guide mb-16">
+        <p class="label mb-8">Format yang dikenali:</p>
+        <pre>Pertanyaan 1?
+A. Pilihan A
+B. Pilihan B
+C. Pilihan C
+D. Pilihan D
+Jawaban: B
+Topik: Nama Topik (opsional)
+
+Pertanyaan 2?
+A. ...
+B. ...
+C. ...
+D. ...
+Jawaban: C
+
+Tuliskan output dari kode ini:
+```python
+print("Hello")
+```
+Jenis: Esai</pre>
+      </div>
+
+      <div id="importError" class="error-message hidden mb-16"></div>
+      <div id="importResult" class="badge badge-success hidden mb-16"></div>
+
+      <div class="modal-actions flex-wrap">
+        <button class="btn btn-secondary btn-sm" id="importExampleBtn">
+          <i data-lucide="download"></i><span>Unduh Contoh</span>
+        </button>
+        <button class="btn btn-secondary btn-sm" id="importCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="importSaveBtn">
+          <span id="importSaveText">Import</span>
+          <span id="importSaveLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal konfirmasi hapus -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <h3 class="modal-title">Hapus Soal</h3>
+      <p class="modal-text" id="deleteModalText">Apakah Anda yakin ingin menghapus soal ini? Tindakan ini tidak bisa dibatalkan.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="deleteCancelBtn">Batal</button>
+        <button class="btn btn-danger btn-sm" id="deleteConfirmBtn">
+          <span id="deleteConfirmText">Ya, Hapus</span>
+          <span id="deleteConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="js/katex-render.js"></script>
+  <script src="js/soal.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard('admin');
+      if (!profile) return;
+
+      document.getElementById('userName').textContent = profile.nama || 'Admin';
+
+      // Sidebar
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      hamburgerBtn.addEventListener('click', function () {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+
+      document.getElementById('logoutBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        logout();
+      });
+
+      // Filter
+      document.getElementById('filterMapel').addEventListener('change', async function () {
+        await initTopicFilter();
+        await loadSoal();
+      });
+      document.getElementById('filterTopik').addEventListener('change', loadSoal);
+
+      lucide.createIcons();
+      await initMapelFilter();
+      await initTopicFilter();
+      await loadSoal();
+      await loadTopicManagement();
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

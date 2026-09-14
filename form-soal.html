@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Form Soal</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-admin.html" class="nav-item">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="kelola-soal.html" class="nav-item active">
+          <i data-lucide="file-text"></i>
+          <span>Kelola Soal</span>
+        </a>
+        <a href="kelola-ujian.html" class="nav-item">
+          <i data-lucide="clock"></i>
+          <span>Kelola Ujian</span>
+        </a>
+        <a href="ranking.html?mode=admin" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+        <a href="kelola-siswa.html" class="nav-item">
+          <i data-lucide="users"></i>
+          <span>Data Siswa</span>
+        </a>
+        <a href="kelola-guru.html" class="nav-item">
+          <i data-lucide="graduation-cap"></i>
+          <span>Data Guru</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">Admin</span>
+        </div>
+      </header>
+
+      <div class="content form-content">
+        <div class="flex justify-between items-center mb-24 flex-wrap gap-16">
+          <div>
+            <h1 class="page-title" id="pageTitle">Tambah Soal</h1>
+            <p class="text-muted hint">Buat atau ubah soal pilihan ganda</p>
+          </div>
+          <a href="kelola-soal.html" class="btn btn-ghost">
+            <i data-lucide="arrow-left"></i>
+            <span>Kembali</span>
+          </a>
+        </div>
+
+        <div class="card form-card">
+          <form id="soalForm">
+            <div class="form-group">
+              <label class="label" for="subjectId">Mata Pelajaran</label>
+              <select id="subjectId" class="select" required>
+                <option value="">Pilih Mata Pelajaran</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="label" for="topicId">Topik (opsional)</label>
+              <select id="topicId" class="select mb-8">
+                <option value="">Tanpa Topik</option>
+              </select>
+              <div class="flex gap-12">
+                <input type="text" id="newTopicName" class="input input-grow" placeholder="Buat topik baru untuk mapel ini...">
+                <button type="button" class="btn btn-secondary btn-sm btn-nowrap" id="addTopicBtn">+ Tambah</button>
+              </div>
+              <p class="hint">Soal dikelompokkan per topik, misal mapel "Teknologi Jaringan" punya topik "Routing Dasar".</p>
+            </div>
+
+            <div class="form-group">
+              <label class="label" for="soalTipe">Jenis Soal</label>
+              <select id="soalTipe" class="select">
+                <option value="pg">Pilihan Ganda (PG)</option>
+                <option value="esai">Esai / Uraian</option>
+              </select>
+              <p class="hint" id="esaiHint" hidden>Soal esai dijawab dengan menulis teks. Tidak dikoreksi otomatis — guru menilai manual lewat menu Laporan Nilai.</p>
+            </div>
+
+            <div class="form-group">
+              <label class="label" for="pertanyaan">Pertanyaan</label>
+              <textarea id="pertanyaan" class="input" placeholder="Tulis pertanyaan..." required></textarea>
+              <p class="hint">Untuk blok kode, apit dengan tanda backtick tiga kali (```) di awal dan akhir. Rumus matematika ($...$, $$...$$) otomatis tampil rapi.</p>
+            </div>
+
+            <div id="pgFields">
+              <div class="form-group">
+                <label class="label" for="pilihan_a">Pilihan A</label>
+                <input type="text" id="pilihan_a" class="input" placeholder="Isi pilihan A" required>
+              </div>
+              <div class="form-group">
+                <label class="label" for="pilihan_b">Pilihan B</label>
+                <input type="text" id="pilihan_b" class="input" placeholder="Isi pilihan B" required>
+              </div>
+              <div class="form-group">
+                <label class="label" for="pilihan_c">Pilihan C</label>
+                <input type="text" id="pilihan_c" class="input" placeholder="Isi pilihan C" required>
+              </div>
+              <div class="form-group">
+                <label class="label" for="pilihan_d">Pilihan D</label>
+                <input type="text" id="pilihan_d" class="input" placeholder="Isi pilihan D" required>
+              </div>
+
+              <div class="form-group">
+                <label class="label">Jawaban Benar</label>
+                <div class="radio-group">
+                  <label class="radio-option">
+                    <input type="radio" name="jawaban_benar" value="a" required>
+                    <span>A</span>
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="jawaban_benar" value="b">
+                    <span>B</span>
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="jawaban_benar" value="c">
+                    <span>C</span>
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="jawaban_benar" value="d">
+                    <span>D</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" id="cancelBtn" onclick="window.location.href='kelola-soal.html'">Batal</button>
+              <button type="submit" class="btn btn-primary" id="saveBtn">
+                <span id="saveBtnText">Simpan</span>
+                <span id="saveBtnLoader" class="hidden"><span class="spinner-small"></span></span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="js/katex-render.js"></script>
+  <script src="js/soal.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard('admin');
+      if (!profile) return;
+
+      document.getElementById('userName').textContent = profile.nama || 'Admin';
+
+      // Sidebar
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      hamburgerBtn.addEventListener('click', function () {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+      document.getElementById('logoutBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        logout();
+      });
+
+      // Cek mode edit
+      const params = new URLSearchParams(window.location.search);
+      const soalId = params.get('id');
+
+      await initMapelFilter();
+
+      const subjectSelect = document.getElementById('subjectId');
+      // Isi ulang dropdown dengan data mapel untuk form
+      const tmp = subjectSelect.innerHTML;
+      subjectSelect.innerHTML = '';
+      const def = document.createElement('option');
+      def.value = '';
+      def.textContent = 'Pilih Mata Pelajaran';
+      subjectSelect.appendChild(def);
+      mapelList.forEach(function (m) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.nama;
+        subjectSelect.appendChild(opt);
+      });
+
+      // Topik (opsional) tergantung mata pelajaran
+      const topicSelect = document.getElementById('topicId');
+      const newTopicNameEl = document.getElementById('newTopicName');
+
+      async function reloadFormTopics() {
+        topicSelect.innerHTML = '';
+        const def = document.createElement('option');
+        def.value = '';
+        def.textContent = subjectSelect.value ? 'Tanpa Topik' : '(Pilih Mapel dulu)';
+        topicSelect.appendChild(def);
+        if (!subjectSelect.value) return;
+        const topics = await loadTopicsForSubject(subjectSelect.value);
+        topics.forEach(function (t) {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = t.nama;
+          topicSelect.appendChild(opt);
+        });
+      }
+
+      subjectSelect.addEventListener('change', reloadFormTopics);
+
+      const soalTipeSelect = document.getElementById('soalTipe');
+      const pgFields = document.getElementById('pgFields');
+      const esaiHint = document.getElementById('esaiHint');
+
+      function applyTipe() {
+        const isEsai = soalTipeSelect.value === 'esai';
+        pgFields.classList.toggle('hidden', isEsai);
+        esaiHint.hidden = !isEsai;
+        pgFields.querySelectorAll('input').forEach(function (i) {
+          i.required = !isEsai;
+        });
+      }
+      soalTipeSelect.addEventListener('change', applyTipe);
+
+      document.getElementById('addTopicBtn').addEventListener('click', async function () {
+        const sid = subjectSelect.value;
+        const nama = newTopicNameEl.value.trim();
+        if (!sid) { showSnackbar('Pilih mata pelajaran dulu.', 'error'); return; }
+        if (!nama) { showSnackbar('Isi nama topik.', 'error'); return; }
+        const { data: created, error } = await supabaseClient
+          .from('topics')
+          .insert({ subject_id: sid, nama: nama })
+          .select('id')
+          .single();
+        if (error) {
+          showSnackbar('Gagal tambah topik: ' + error.message, 'error');
+          return;
+        }
+        newTopicNameEl.value = '';
+        await reloadFormTopics();
+        topicSelect.value = created.id;
+        showSnackbar('Topik berhasil ditambahkan.', 'success');
+      });
+
+      newTopicNameEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          document.getElementById('addTopicBtn').click();
+        }
+      });
+
+      if (soalId) {
+        document.getElementById('pageTitle').textContent = 'Edit Soal';
+        document.getElementById('saveBtnText').textContent = 'Perbarui';
+        const soal = await getSoalById(soalId);
+        if (!soal) {
+          showSnackbar('Soal tidak ditemukan.', 'error');
+          window.location.href = 'kelola-soal.html';
+          return;
+        }
+        subjectSelect.value = soal.subject_id;
+        await reloadFormTopics();
+        if (soal.topic_id) topicSelect.value = soal.topic_id;
+        soalTipeSelect.value = soal.tipe === 'esai' ? 'esai' : 'pg';
+        applyTipe();
+        document.getElementById('pertanyaan').value = soal.pertanyaan;
+        document.getElementById('pilihan_a').value = soal.pilihan_a;
+        document.getElementById('pilihan_b').value = soal.pilihan_b;
+        document.getElementById('pilihan_c').value = soal.pilihan_c;
+        document.getElementById('pilihan_d').value = soal.pilihan_d;
+        document.querySelector('input[name="jawaban_benar"][value="' + soal.jawaban_benar + '"]').checked = !!soal.jawaban_benar;
+        document.getElementById('pertanyaan').focus();
+      }
+
+      document.getElementById('soalForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const subjectId = subjectSelect.value;
+        const tipe = soalTipeSelect.value;
+        const pertanyaan = document.getElementById('pertanyaan').value.trim();
+        const pilihan_a = document.getElementById('pilihan_a').value.trim();
+        const pilihan_b = document.getElementById('pilihan_b').value.trim();
+        const pilihan_c = document.getElementById('pilihan_c').value.trim();
+        const pilihan_d = document.getElementById('pilihan_d').value.trim();
+        const jawabanBenar = document.querySelector('input[name="jawaban_benar"]:checked');
+
+        if (tipe === 'pg') {
+          const pilihanList = [pilihan_a, pilihan_b, pilihan_c, pilihan_d];
+          const duplikat = pilihanList.some(function (v, i) {
+            return pilihanList.indexOf(v) !== i;
+          });
+          if (duplikat) {
+            showSnackbar('Pilihan jawaban tidak boleh ada yang sama.', 'error');
+            return;
+          }
+
+          if (!jawabanBenar) {
+            showSnackbar('Pilih jawaban yang benar.', 'error');
+            return;
+          }
+        }
+
+        const saveBtn = document.getElementById('saveBtn');
+        const saveBtnText = document.getElementById('saveBtnText');
+        const saveBtnLoader = document.getElementById('saveBtnLoader');
+        saveBtn.disabled = true;
+        saveBtnText.textContent = 'Menyimpan...';
+        saveBtnLoader.classList.remove('hidden');
+
+        const payload = {
+          subject_id: subjectId,
+          topic_id: topicSelect.value || null,
+          pertanyaan: pertanyaan,
+          tipe: tipe,
+          pilihan_a: pilihan_a,
+          pilihan_b: pilihan_b,
+          pilihan_c: pilihan_c,
+          pilihan_d: pilihan_d,
+          jawaban_benar: tipe === 'esai' ? '' : jawabanBenar.value,
+          created_by: profile.id
+        };
+
+        const { error } = await saveSoal(payload, soalId);
+
+        saveBtn.disabled = false;
+        saveBtnText.textContent = soalId ? 'Perbarui' : 'Simpan';
+        saveBtnLoader.classList.add('hidden');
+
+        if (error) {
+          console.error('Simpan soal error:', error.message);
+          showSnackbar('Gagal menyimpan soal: ' + error.message, 'error');
+          return;
+        }
+
+        showSnackbar('Soal berhasil disimpan.', 'success');
+        setTimeout(function () {
+          window.location.href = 'kelola-soal.html';
+        }, 800);
+      });
+
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

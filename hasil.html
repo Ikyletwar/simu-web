@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Hasil Ujian</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/login.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="login-container">
+    <div class="card login-card hasil-card">
+      <div class="login-header">
+        <div class="hasil-icon" id="hasilIcon">
+          <i data-lucide="check-circle"></i>
+        </div>
+        <h1>Hasil Ujian</h1>
+        <p class="hint" id="examJudul">-</p>
+      </div>
+
+      <div id="loadingBox" class="loading">
+        <span class="spinner"></span>
+      </div>
+
+      <div id="hasilContent" class="hidden">
+        <div class="nilai-box">
+          <span class="nilai-value" id="nilaiValue">0</span>
+          <span class="nilai-label">Nilai Akhir</span>
+        </div>
+
+        <div class="hasil-stats flex gap-12 mt-24">
+          <div class="card hasil-stat">
+            <span class="stat-value text-success" id="jumlahBenar">0</span>
+            <span class="hint">Benar</span>
+          </div>
+          <div class="card hasil-stat">
+            <span class="stat-value text-error" id="jumlahSalah">0</span>
+            <span class="hint">Salah</span>
+          </div>
+          <div class="card hasil-stat">
+            <span class="stat-value" id="totalSoal">0</span>
+            <span class="hint">Soal</span>
+          </div>
+        </div>
+
+        <p class="hint esai-note" id="esaiNote" hidden>Soal esai dinilai manual oleh guru setelah ujian selesai. Nilai di atas baru dari soal pilihan ganda.</p>
+
+        <div class="flex flex-col gap-12 mt-24">
+          <button class="btn btn-primary w-full" id="lihatRankingBtn">
+            <i data-lucide="bar-chart"></i>
+            <span>Lihat Ranking</span>
+          </button>
+          <button class="btn btn-secondary w-full" id="kembaliBtn">
+            <i data-lucide="home"></i>
+            <span>Kembali ke Dashboard</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="js/katex-render.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard('siswa');
+      if (!profile) return;
+
+      const examId = new URLSearchParams(window.location.search).get('exam');
+      if (!examId) {
+        showSnackbar('Parameter tidak ditemukan.', 'error');
+        return;
+      }
+
+      const [subRes, examRes] = await Promise.all([
+        supabaseClient.from('submissions')
+          .select('*')
+          .eq('exam_id', examId)
+          .eq('user_id', profile.id)
+          .maybeSingle(),
+        supabaseClient.from('exams')
+          .select('judul')
+          .eq('id', examId)
+          .maybeSingle()
+      ]);
+
+      document.getElementById('loadingBox').classList.add('hidden');
+
+      if (subRes.error || !subRes.data) {
+        showSnackbar('Belum ada hasil untuk ujian ini.', 'error');
+        setTimeout(function () {
+          window.location.href = 'dashboard-siswa.html';
+        }, 1000);
+        return;
+      }
+
+      const sub = subRes.data;
+      document.getElementById('hasilContent').classList.remove('hidden');
+      document.getElementById('examJudul').textContent = examRes.data ? examRes.data.judul : 'Ujian';
+
+      // Cek apakah ujian ini berisi soal esai (menunggu penilaian guru)
+      const { data: eqData } = await supabaseClient
+        .from('exam_questions')
+        .select('questions(tipe)')
+        .eq('exam_id', examId);
+      const hasEsai = (eqData || []).some(function (e) {
+        return e.questions && e.questions.tipe === 'esai';
+      });
+      document.getElementById('esaiNote').hidden = !hasEsai;
+
+      const nilai = parseFloat(sub.nilai || 0);
+      document.getElementById('nilaiValue').textContent = nilai;
+      document.getElementById('jumlahBenar').textContent = sub.jumlah_benar;
+      document.getElementById('jumlahSalah').textContent = sub.jumlah_salah;
+      document.getElementById('totalSoal').textContent = sub.jumlah_benar + sub.jumlah_salah;
+
+      const icon = document.getElementById('hasilIcon');
+      if (nilai >= 75) {
+        icon.className = 'hasil-icon success';
+        icon.innerHTML = '<i data-lucide="check-circle"></i>';
+      } else if (nilai >= 60) {
+        icon.className = 'hasil-icon warning';
+        icon.innerHTML = '<i data-lucide="alert-circle"></i>';
+      } else {
+        icon.className = 'hasil-icon error';
+        icon.innerHTML = '<i data-lucide="x-circle"></i>';
+      }
+
+      document.getElementById('lihatRankingBtn').addEventListener('click', function () {
+        window.location.href = 'ranking.html';
+      });
+      document.getElementById('kembaliBtn').addEventListener('click', function () {
+        window.location.href = 'dashboard-siswa.html';
+      });
+
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

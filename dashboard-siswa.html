@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Dashboard Siswa</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-siswa.html" class="nav-item active">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="ranking.html" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user-info">
+          <span class="user-avatar" id="userAvatar">S</span>
+          <div class="sidebar-user-meta">
+            <span class="user-label" id="userName">Siswa</span>
+            <span class="hint" id="userDetail">-</span>
+          </div>
+        </div>
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="topbarName">Siswa</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <h1 class="page-title">Dashboard Siswa</h1>
+        <p class="text-muted mb-24" id="welcomeText">Selamat datang.</p>
+
+        <div class="student-meta mb-24">
+          <span class="badge badge-neutral" id="classBadge">Kelas: -</span>
+          <span class="badge badge-neutral" id="majorBadge">Jurusan: -</span>
+        </div>
+
+        <div class="stat-grid mb-24">
+          <div class="card stat-card">
+            <div class="stat-icon stat-icon-success"><i data-lucide="check-circle"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="statDikerjakan">0</span>
+              <span class="stat-label">Ujian Dikerjakan</span>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon"><i data-lucide="trending-up"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="statRata">-</span>
+              <span class="stat-label">Rata-rata Nilai</span>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon stat-icon-primary"><i data-lucide="trophy"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="statRank">-</span>
+              <span class="stat-label">Peringkat</span>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon"><i data-lucide="clock"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="statTersedia">0</span>
+              <span class="stat-label">Ujian Tersedia</span>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="mb-16">Ujian Terdekat</h2>
+
+        <div id="upcomingBox" class="loading">
+          <span class="spinner"></span>
+        </div>
+
+        <div id="upcomingEmpty" class="card empty-state hidden">
+          <i data-lucide="calendar"></i>
+          <p class="hint">Tidak ada ujian mendatang.</p>
+        </div>
+
+        <div id="upcomingList" class="ujian-grid"></div>
+
+        <h2 class="mb-16 mt-48">Ujian Tersedia</h2>
+
+        <div id="loadingBox" class="loading">
+          <span class="spinner"></span>
+        </div>
+
+        <div id="emptyState" class="card empty-state hidden">
+          <i data-lucide="inbox"></i>
+          <p class="hint">Belum ada ujian yang tersedia.</p>
+        </div>
+
+        <div id="ujianList" class="ujian-grid"></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard('siswa');
+      if (!profile) return;
+
+      document.getElementById('userName').textContent = profile.nama || 'Siswa';
+      document.getElementById('topbarName').textContent = profile.nama || 'Siswa';
+      document.getElementById('userAvatar').textContent = (profile.nama || 'S').charAt(0).toUpperCase();
+      document.getElementById('welcomeText').textContent = 'Selamat datang, ' + (profile.nama || 'siswa') + '.';
+
+      // Sidebar
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      hamburgerBtn.addEventListener('click', function () {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+      document.getElementById('logoutBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        logout();
+      });
+
+      // Informasi kelas & jurusan
+      if (profile.class_id || profile.major_id) {
+        const getters = [];
+        if (profile.class_id) getters.push(supabaseClient.from('classes').select('nama').eq('id', profile.class_id).maybeSingle());
+        if (profile.major_id) getters.push(supabaseClient.from('majors').select('nama').eq('id', profile.major_id).maybeSingle());
+        const results = await Promise.all(getters);
+        if (profile.class_id) {
+          const cls = results[0].data;
+          if (cls) {
+            document.getElementById('classBadge').textContent = 'Kelas: ' + cls.nama;
+            document.getElementById('userDetail').textContent = cls.nama;
+          }
+        }
+        if (profile.major_id) {
+          const idx = profile.class_id ? 1 : 0;
+          const mjr = results[idx].data;
+          if (mjr) document.getElementById('majorBadge').textContent = 'Jurusan: ' + mjr.nama;
+        }
+      }
+
+      lucide.createIcons();
+
+      // Muat daftar ujian published
+      const loadingBox = document.getElementById('loadingBox');
+      const emptyState = document.getElementById('emptyState');
+      const ujianList = document.getElementById('ujianList');
+      const upcomingBox = document.getElementById('upcomingBox');
+      const upcomingEmpty = document.getElementById('upcomingEmpty');
+      const upcomingList = document.getElementById('upcomingList');
+
+      const { data: exams, error } = await supabaseClient
+        .from('exams')
+        .select('id, judul, subject_id, durasi_menit, tanggal_mulai, tanggal_selesai')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+
+      loadingBox.classList.add('hidden');
+      upcomingBox.classList.add('hidden');
+
+      if (error) {
+        console.error('load exams error:', error.message);
+        showSnackbar('Gagal memuat ujian.', 'error');
+        return;
+      }
+
+      // Ambil data mapel
+      const { data: subs } = await supabaseClient.from('subjects').select('id, nama');
+      const subjectMap = {};
+      (subs || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
+
+      // Ambil submission yang sudah dikerjakan user
+      const { data: doneSubs } = await supabaseClient
+        .from('submissions')
+        .select('exam_id, nilai')
+        .eq('user_id', profile.id);
+      const doneMap = {};
+      (doneSubs || []).forEach(function (s) { doneMap[s.exam_id] = s.nilai; });
+
+      // Statistik ringkas
+      const doneKnown = (doneSubs || []).filter(function (s) {
+        return exams.some(function (ex) { return ex.id === s.exam_id; });
+      });
+      document.getElementById('statDikerjakan').textContent = doneKnown.length;
+      if (doneKnown.length > 0) {
+        const total = doneKnown.reduce(function (acc, s) { return acc + (parseFloat(s.nilai) || 0); }, 0);
+        const rata = total / doneKnown.length;
+        document.getElementById('statRata').textContent = (rata % 1 === 0 ? rata.toFixed(0) : rata.toFixed(2));
+      }
+
+      // Kategori ujian
+      const now = new Date();
+      const notDone = function (ex) { return doneMap[ex.id] === undefined; };
+      const upcoming = (exams || [])
+        .filter(function (ex) { return notDone(ex) && new Date(ex.tanggal_mulai) > now; })
+        .sort(function (a, b) { return new Date(a.tanggal_mulai) - new Date(b.tanggal_mulai); })
+        .slice(0, 3);
+
+      const list = (exams || []).filter(function (ex) {
+        if (!notDone(ex)) return false;
+        const start = new Date(ex.tanggal_mulai);
+        const end = new Date(ex.tanggal_selesai);
+        return now >= start && now <= end;
+      });
+
+      document.getElementById('statTersedia').textContent = list.length;
+
+      if (upcoming.length === 0) {
+        upcomingEmpty.classList.remove('hidden');
+      }
+      upcoming.forEach(function (ex) {
+        const card = document.createElement('div');
+        card.className = 'card ujian-card';
+        card.innerHTML =
+          '<div class="ujian-card-icon"><i data-lucide="calendar-clock"></i></div>' +
+          '<h3>' + escapeHtml(ex.judul) + '</h3>' +
+          '<span class="badge badge-neutral">' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</span>' +
+          '<div class="flex items-center gap-8 mt-12">' +
+          '  <i data-lucide="clock"></i>' +
+          '  <span class="hint">' + ex.durasi_menit + ' menit</span>' +
+          '</div>' +
+          '<span class="badge badge-primary mt-12">' + countdownLabel(new Date(ex.tanggal_mulai)) + '</span>';
+        upcomingList.appendChild(card);
+      });
+
+      if (list.length === 0) {
+        emptyState.classList.remove('hidden');
+      }
+
+      list.forEach(function (ex) {
+        const card = document.createElement('div');
+        card.className = 'card ujian-card';
+        card.innerHTML =
+          '<div class="ujian-card-icon"><i data-lucide="file-text"></i></div>' +
+          '<h3>' + escapeHtml(ex.judul) + '</h3>' +
+          '<span class="badge badge-neutral">' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</span>' +
+          '<div class="flex items-center gap-8 mt-12">' +
+          '  <i data-lucide="clock"></i>' +
+          '  <span class="hint">' + ex.durasi_menit + ' menit</span>' +
+          '</div>' +
+          '<a href="ujian.html?exam=' + ex.id + '" class="btn btn-primary w-full mt-16">' +
+          '  <i data-lucide="play"></i><span>Kerjakan</span>' +
+          '</a>';
+        ujianList.appendChild(card);
+      });
+
+      // Peringkat kamu (ringkas dari get_ranking)
+      (async function () {
+        try {
+          const filterType = profile.class_id ? 'class' : (profile.major_id ? 'major' : 'global');
+          const { data: ranks } = await supabaseClient.rpc('get_ranking', {
+            filter_type: filterType,
+            filter_value: profile.class_id || profile.major_id || null
+          });
+          const me = (ranks || []).find(function (r) { return r.user_id === profile.id; });
+          document.getElementById('statRank').textContent = me
+            ? me.r_number + ' / ' + ranks.length
+            : '-';
+        } catch (e) {
+          console.error('rank gagal:', e.message);
+        }
+      })();
+
+      // Card "sudah dikerjakan" (riwayat nilai terakhir)
+      const doneList = (doneSubs || []).filter(function (s) {
+        return exams.some(function (ex) { return ex.id === s.exam_id; });
+      });
+      if (doneList.length > 0) {
+        const historyTitle = document.createElement('h2');
+        historyTitle.className = 'mb-16 mt-48';
+        historyTitle.textContent = 'Riwayat Nilai';
+        ujianList.appendChild(historyTitle);
+
+        const histWrapper = document.createElement('div');
+        histWrapper.className = 'ujian-grid';
+        doneList.forEach(function (s) {
+          const ex = exams.find(function (e) { return e.id === s.exam_id; });
+          const card = document.createElement('div');
+          card.className = 'card ujian-card';
+          card.innerHTML =
+            '<div class="ujian-card-icon"><i data-lucide="check-circle"></i></div>' +
+            '<h3>' + escapeHtml(ex ? ex.judul : '-') + '</h3>' +
+            '<span class="badge badge-success">Nilai ' + s.nilai + '</span>' +
+            '<a href="hasil.html?exam=' + s.exam_id + '" class="btn btn-secondary w-full mt-16">' +
+            '  <i data-lucide="eye"></i><span>Lihat Hasil</span>' +
+            '</a>';
+          histWrapper.appendChild(card);
+        });
+        ujianList.appendChild(histWrapper);
+      }
+
+      lucide.createIcons();
+    });
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text == null ? '' : String(text);
+      return div.innerHTML;
+    }
+
+    function countdownLabel(start) {
+      const diff = start - Date.now();
+      const hari = Math.floor(diff / 86400000);
+      const jam = Math.floor(diff / 3600000);
+      if (hari >= 1) return 'Mulai ' + hari + ' hari lagi';
+      if (jam >= 1) return 'Mulai ' + jam + ' jam lagi';
+      const menit = Math.max(0, Math.floor(diff / 60000));
+      return 'Mulai ' + menit + ' menit lagi';
+    }
+  </script>
+</body>
+</html>

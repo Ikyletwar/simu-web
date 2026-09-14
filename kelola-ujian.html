@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Kelola Ujian</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-admin.html" class="nav-item">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="kelola-soal.html" class="nav-item">
+          <i data-lucide="file-text"></i>
+          <span>Kelola Soal</span>
+        </a>
+        <a href="kelola-ujian.html" class="nav-item active">
+          <i data-lucide="clock"></i>
+          <span>Kelola Ujian</span>
+        </a>
+        <a href="laporan.html" class="nav-item">
+          <i data-lucide="clipboard-list"></i>
+          <span>Laporan Nilai</span>
+        </a>
+        <a href="ranking.html?mode=admin" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+        <a href="kelola-siswa.html" class="nav-item">
+          <i data-lucide="users"></i>
+          <span>Data Siswa</span>
+        </a>
+        <a href="kelola-guru.html" class="nav-item">
+          <i data-lucide="graduation-cap"></i>
+          <span>Data Guru</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="ubah-password.html" class="nav-item">
+          <i data-lucide="key-round"></i>
+          <span>Ubah Password</span>
+        </a>
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">Admin</span>
+        </div>
+      </header>
+
+      <div class="content form-content">
+        <div class="mb-24">
+          <h1 class="page-title">Kelola Ujian</h1>
+          <p class="text-muted hint">Buat ujian baru dari bank soal</p>
+        </div>
+
+        <div class="card form-card mb-48">
+          <h2 class="mb-24" id="formTitle">Buat Ujian Baru</h2>
+          <form id="examForm">
+            <div class="form-group">
+              <label class="label" for="examJudul">Judul Ujian</label>
+              <input type="text" id="examJudul" class="input" placeholder="Misal: UAS Matematika Kelas XI" required>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="label" for="examSubject">Mata Pelajaran</label>
+                <select id="examSubject" class="select" required>
+                  <option value="">Pilih Mapel</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="label" for="examDurasi">Durasi (menit)</label>
+                <input type="number" id="examDurasi" class="input" min="1" value="60" required>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="label" for="examKelas">Kelas (opsional)</label>
+                <select id="examKelas" class="select">
+                  <option value="">Semua Kelas</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="label" for="examJurusan">Jurusan (opsional)</label>
+                <select id="examJurusan" class="select">
+                  <option value="">Semua Jurusan</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="label" for="examMulai">Tanggal & Jam Mulai</label>
+                <input type="datetime-local" id="examMulai" class="input" required>
+              </div>
+              <div class="form-group">
+                <label class="label" for="examSelesai">Tanggal & Jam Selesai</label>
+                <input type="datetime-local" id="examSelesai" class="input" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="label">Pilih Soal dari Bank Soal</label>
+              <div class="question-picker">
+                <div id="questionPickerBody" class="question-picker-body">
+                  <p class="hint">Pilih mata pelajaran untuk melihat bank soal.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="examError" class="error-message hidden"></div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" id="resetBtn">Reset</button>
+              <button type="submit" class="btn btn-primary" id="saveExamBtn">
+                <span id="saveExamBtnText">Publikasikan</span>
+                <span id="saveExamBtnLoader" class="hidden"><span class="spinner-small"></span></span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <h2 class="mb-16">Daftar Ujian</h2>
+        <div id="examList" class="card">
+          <div class="loading" id="examLoading"><span class="spinner"></span></div>
+          <div id="examListEmpty" class="empty-state hidden">
+            <i data-lucide="inbox"></i>
+            <p class="hint">Belum ada ujian.</p>
+          </div>
+          <div id="examTableWrap" class="table-wrapper hidden">
+            <table>
+              <thead>
+                <tr>
+                  <th>Judul</th>
+                  <th>Mapel</th>
+                  <th>Durasi</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="examTableBody"></tbody>
+            </table>
+          </div>
+          <div id="examCardList"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal konfirmasi hapus ujian -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <h3 class="modal-title">Hapus Ujian</h3>
+      <p class="modal-text">Apakah Anda yakin ingin menghapus ujian ini? Semua data pengerjaan terkait juga akan terhapus.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="deleteCancelBtn">Batal</button>
+        <button class="btn btn-danger btn-sm" id="deleteConfirmBtn">
+          <span id="deleteConfirmText">Ya, Hapus</span>
+          <span id="deleteConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="js/katex-render.js"></script>
+  <script>
+    let examDeleteTarget = null;
+    let loadedQuestions = [];
+    let editExamId = null;
+    let kelasList = [];
+
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard('admin');
+      if (!profile) return;
+
+      document.getElementById('userName').textContent = profile.nama || 'Admin';
+
+      // Sidebar
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      hamburgerBtn.addEventListener('click', function () {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+      document.getElementById('logoutBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        logout();
+      });
+
+      lucide.createIcons();
+
+      // Load referensi: subjects, classes, majors
+      const [subRes, classRes, majorRes] = await Promise.all([
+        supabaseClient.from('subjects').select('id, nama').order('nama'),
+        supabaseClient.from('classes').select('id, nama, tingkat, major_id').order('nama'),
+        supabaseClient.from('majors').select('id, nama, kode').order('kode')
+      ]);
+
+      kelasList = classRes.data || [];
+
+      const subjectSelect = document.getElementById('examSubject');
+      (subRes.data || []).forEach(function (s) {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.nama;
+        subjectSelect.appendChild(opt);
+      });
+
+      // Kelas: hanya tingkatan X / XI / XII (opsional)
+      const kelasSelect = document.getElementById('examKelas');
+      const tingkatHuruf = { '10': 'X', '11': 'XI', '12': 'XII' };
+      const tingkatSet = {};
+      (kelasList).forEach(function (c) {
+        if (c.tingkat) tingkatSet[c.tingkat] = true;
+      });
+      Object.keys(tingkatSet)
+        .sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); })
+        .forEach(function (t) {
+          const opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = tingkatHuruf[t] || t;
+          kelasSelect.appendChild(opt);
+        });
+
+      // Jurusan: tampilkan kode pendek (MPLB, AKL, PMS, ULP, TJKT, TK)
+      const jurusanSelect = document.getElementById('examJurusan');
+      (majorRes.data || []).forEach(function (m) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.kode || m.nama;
+        jurusanSelect.appendChild(opt);
+      });
+
+      // Set default datetime
+      const now = new Date();
+      now.setSeconds(0, 0);
+      const end = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      function toLocal(d) {
+        const pad = function (n) { return String(n).padStart(2, '0'); };
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+          'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      }
+      document.getElementById('examMulai').value = toLocal(now);
+      document.getElementById('examSelesai').value = toLocal(end);
+
+      // Load soal saat mapel dipilih (fungsi top-level di bawah)
+      subjectSelect.addEventListener('change', function () { loadQuestionPicker(); });
+      document.getElementById('resetBtn').addEventListener('click', function () {
+        resetExamForm();
+      });
+
+      // Submit form
+      document.getElementById('examForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const errorEl = document.getElementById('examError');
+        errorEl.classList.add('hidden');
+
+        const judul = document.getElementById('examJudul').value.trim();
+        const subjectId = subjectSelect.value;
+        const durasi = parseInt(document.getElementById('examDurasi').value, 10);
+        const majorId = jurusanSelect.value || null;
+        const matchedClass = kelasSelect.value && majorId ? kelasList.find(function (c) {
+          return c.tingkat === kelasSelect.value && c.major_id === majorId;
+        }) : null;
+        const classId = matchedClass ? matchedClass.id : null;
+        const mulai = document.getElementById('examMulai').value;
+        const selesai = document.getElementById('examSelesai').value;
+
+        const checked = Array.from(document.querySelectorAll('.question-check input:checked')).map(function (el) {
+          return el.value;
+        });
+
+        if (!judul || !subjectId || !durasi || !mulai || !selesai) {
+          errorEl.textContent = 'Lengkapi semua kolom yang wajib diisi.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        if (new Date(selesai) <= new Date(mulai)) {
+          errorEl.textContent = 'Tanggal selesai harus setelah tanggal mulai.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        if (checked.length === 0) {
+          errorEl.textContent = 'Pilih minimal 1 soal untuk ujian.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        const saveBtn = document.getElementById('saveExamBtn');
+        const saveBtnText = document.getElementById('saveExamBtnText');
+        const saveBtnLoader = document.getElementById('saveExamBtnLoader');
+        saveBtn.disabled = true;
+        saveBtnText.textContent = 'Menyimpan...';
+        saveBtnLoader.classList.remove('hidden');
+
+        try {
+          let examIdRow = editExamId;
+          const payload = {
+            judul: judul,
+            subject_id: subjectId,
+            class_id: classId,
+            major_id: majorId,
+            durasi_menit: durasi,
+            tanggal_mulai: new Date(mulai).toISOString(),
+            tanggal_selesai: new Date(selesai).toISOString(),
+            is_published: true
+          };
+
+          if (editExamId) {
+            const { error: updErr } = await supabaseClient
+              .from('exams')
+              .update(payload)
+              .eq('id', editExamId);
+            if (updErr) throw updErr;
+
+            const { error: delErr } = await supabaseClient
+              .from('exam_questions')
+              .delete()
+              .eq('exam_id', editExamId);
+            if (delErr) throw delErr;
+          } else {
+            const { data: newExam, error: examErr } = await supabaseClient
+              .from('exams')
+              .insert(Object.assign({}, payload, { created_by: profile.id }))
+              .select('id')
+              .single();
+            if (examErr) throw examErr;
+            examIdRow = newExam.id;
+          }
+
+          const rows = checked.map(function (qid, i) {
+            return { exam_id: examIdRow, question_id: qid, urutan: i + 1 };
+          });
+          const { error: linkErr } = await supabaseClient
+            .from('exam_questions')
+            .insert(rows);
+          if (linkErr) throw linkErr;
+
+          showSnackbar(editExamId ? 'Perubahan ujian disimpan.' : 'Ujian berhasil dipublikasikan.', 'success');
+          resetExamForm();
+          await loadExamList();
+        } catch (err) {
+          console.error('Simpan ujian error:', err.message);
+          errorEl.textContent = 'Gagal menyimpan ujian: ' + err.message;
+          errorEl.classList.remove('hidden');
+          showSnackbar('Gagal menyimpan ujian.', 'error');
+        }
+
+        saveBtn.disabled = false;
+        saveBtnText.textContent = editExamId ? 'Simpan Perubahan' : 'Publikasikan';
+        saveBtnLoader.classList.add('hidden');
+      });
+
+      await loadExamList();
+      lucide.createIcons();
+    });
+
+    function truncate(text, len) {
+      if (!text) return '';
+      return text.length > len ? text.substring(0, len) + '...' : text;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text == null ? '' : String(text);
+      return div.innerHTML;
+    }
+
+    function toLocalFix(d) {
+      const pad = function (n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+        'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    async function loadQuestionPicker() {
+      const sid = document.getElementById('examSubject').value;
+      const picker = document.getElementById('questionPickerBody');
+      if (!sid) {
+        picker.innerHTML = '<p class="hint">Pilih mata pelajaran untuk melihat bank soal.</p>';
+        loadedQuestions = [];
+        return;
+      }
+      picker.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
+      const [qRes, tRes] = await Promise.all([
+        supabaseClient
+          .from('questions')
+          .select('*')
+          .eq('subject_id', sid)
+          .order('created_at'),
+        supabaseClient.from('topics').select('id, nama').eq('subject_id', sid).order('nama')
+      ]);
+      if (qRes.error) {
+        picker.innerHTML = '<p class="hint text-error">Gagal memuat soal.</p>';
+        return;
+      }
+      loadedQuestions = qRes.data || [];
+      if (loadedQuestions.length === 0) {
+        picker.innerHTML = '<p class="hint">Belum ada soal untuk mapel ini. Buat soal dulu di menu Kelola Soal.</p>';
+        return;
+      }
+
+      const topicMap = {};
+      (tRes.data || []).forEach(function (t) { topicMap[t.id] = t.nama; });
+
+      picker.innerHTML = '';
+      picker.appendChild(buildToolbar());
+
+      // Kelompokkan soal per topik
+      const groups = {};
+      loadedQuestions.forEach(function (q) {
+        const key = q.topic_id || '__none';
+        if (!groups[key]) {
+          groups[key] = { name: key === '__none' ? 'Tanpa Topik' : (topicMap[key] || 'Topik'), list: [] };
+        }
+        groups[key].list.push(q);
+      });
+
+      Object.keys(groups).forEach(function (key) {
+        const group = groups[key];
+        // Header kelompok + "Pilih semua". Klik header untuk buka/tutup daftar soal.
+        const header = document.createElement('div');
+        header.className = 'question-picker-group-head flex justify-between items-center';
+        header.innerHTML =
+          '<span class="picker-group-title flex items-center gap-8">' +
+          '  <i data-lucide="chevron-down" class="picker-chevron"></i>' +
+          '  <span class="font-medium">' + escapeHtml(group.name) +
+          '    <span class="hint">(' + group.list.length + ' soal)</span>' +
+          '  </span>' +
+          '</span>' +
+          '<label class="select-all-label">' +
+          '  <input type="checkbox" class="group-select-all"> Pilih semua' +
+          '</label>';
+        picker.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'question-picker-group-body collapsed';
+        group.list.forEach(function (q, idx) {
+          const wrap = document.createElement('div');
+          wrap.className = 'question-check';
+          wrap.innerHTML =
+            '<input type="checkbox" value="' + q.id + '" id="qc_' + q.id + '">' +
+            '<label for="qc_' + q.id + '" class="question-check-label">' +
+            '  <span class="hint">Soal ' + (idx + 1) + '</span>' +
+            '  <span class="font-medium">' + escapeHtml(truncate(q.pertanyaan, 80)) + '</span>' +
+            (q.tipe === 'esai' ? '  <span class="badge badge-warning">Esai</span>' : '') +
+            '</label>';
+          body.appendChild(wrap);
+        });
+        picker.appendChild(body);
+
+        // Klik pada area label "Pilih semua" jangan men-toggle accordion.
+        header.addEventListener('click', function (e) {
+          if (e.target.closest('label')) return;
+          const isCollapsed = body.classList.toggle('collapsed');
+          header.classList.toggle('open', !isCollapsed);
+        });
+
+        header.querySelector('.group-select-all').addEventListener('change', function (e) {
+          body.querySelectorAll('.question-check input').forEach(function (cb) {
+            cb.checked = e.target.checked;
+          });
+        });
+      });
+
+      lucide.createIcons();
+    }
+
+    function buildToolbar() {
+      const toolbar = document.createElement('div');
+      toolbar.className = 'question-picker-toolbar flex gap-12';
+      toolbar.innerHTML =
+        '<button type="button" class="btn btn-secondary btn-sm" id="pickAllBtn">Pilih Semua</button>' +
+        '<button type="button" class="btn btn-secondary btn-sm" id="pickNoneBtn">Batal Semua</button>';
+      toolbar.querySelector('#pickAllBtn').addEventListener('click', function () {
+        document.querySelectorAll('.question-picker-group-body .question-check input').forEach(function (cb) {
+          cb.checked = true;
+        });
+      });
+      toolbar.querySelector('#pickNoneBtn').addEventListener('click', function () {
+        document.querySelectorAll('.question-picker-group-body .question-check input').forEach(function (cb) {
+          cb.checked = false;
+        });
+      });
+      return toolbar;
+    }
+
+    function resetExamForm() {
+      editExamId = null;
+      document.getElementById('examForm').reset();
+      document.getElementById('formTitle').textContent = 'Buat Ujian Baru';
+      document.getElementById('saveExamBtnText').textContent = 'Publikasikan';
+      var now = new Date();
+      now.setSeconds(0, 0);
+      var end = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      document.getElementById('examMulai').value = toLocalFix(now);
+      document.getElementById('examSelesai').value = toLocalFix(end);
+      document.getElementById('questionPickerBody').innerHTML = '<p class="hint">Pilih mata pelajaran untuk melihat bank soal.</p>';
+      loadedQuestions = [];
+    }
+
+    async function startEditExam(examId) {
+      editExamId = examId;
+      document.getElementById('formTitle').textContent = 'Edit Ujian';
+      document.getElementById('saveExamBtnText').textContent = 'Simpan Perubahan';
+
+      const { data: exam, error } = await supabaseClient
+        .from('exams')
+        .select('*')
+        .eq('id', examId)
+        .maybeSingle();
+
+      if (error || !exam) {
+        showSnackbar('Gagal memuat ujian.', 'error');
+        resetExamForm();
+        return;
+      }
+
+      document.getElementById('examJudul').value = exam.judul || '';
+      document.getElementById('examSubject').value = exam.subject_id || '';
+      const examClass = kelasList.find(function (c) { return c.id === exam.class_id; });
+      document.getElementById('examKelas').value = examClass ? examClass.tingkat : '';
+      document.getElementById('examJurusan').value = exam.major_id || '';
+      document.getElementById('examDurasi').value = exam.durasi_menit;
+      document.getElementById('examMulai').value = toLocalFix(new Date(exam.tanggal_mulai));
+      document.getElementById('examSelesai').value = toLocalFix(new Date(exam.tanggal_selesai));
+
+      const { data: eqs } = await supabaseClient
+        .from('exam_questions')
+        .select('question_id')
+        .eq('exam_id', examId);
+
+      await loadQuestionPicker();
+
+      (eqs || []).forEach(function (e) {
+        const cb = document.getElementById('qc_' + e.question_id);
+        if (cb) cb.checked = true;
+      });
+
+      document.getElementById('examForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function loadExamList() {
+      const loading = document.getElementById('examLoading');
+      const empty = document.getElementById('examListEmpty');
+      const tableWrap = document.getElementById('examTableWrap');
+      const tbody = document.getElementById('examTableBody');
+      const cardList = document.getElementById('examCardList');
+
+      loading.classList.remove('hidden');
+      tableWrap.classList.add('hidden');
+      empty.classList.add('hidden');
+      cardList.innerHTML = '';
+      tbody.innerHTML = '';
+
+      const [exRes, subRes] = await Promise.all([
+        supabaseClient.from('exams').select('*').order('created_at', { ascending: false }),
+        supabaseClient.from('subjects').select('id, nama')
+      ]);
+      loading.classList.add('hidden');
+
+      if (exRes.error) {
+        console.error('loadExamList error:', exRes.error.message);
+        return;
+      }
+
+      const subjectMap = {};
+      (subRes.data || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
+
+      const exams = exRes.data || [];
+      if (exams.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      tableWrap.classList.remove('hidden');
+      exams.forEach(function (ex) {
+        const statusBadge = ex.is_published
+          ? '<span class="badge badge-success">Tayang</span>'
+          : '<span class="badge badge-warning">Draft</span>';
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td class="font-medium">' + escapeHtml(ex.judul) + '</td>' +
+          '<td>' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</td>' +
+          '<td>' + ex.durasi_menit + ' menit</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td><div class="flex gap-8">' +
+          '  <button class="btn btn-secondary btn-sm btn-edit-exam" data-id="' + ex.id + '"><i data-lucide="pencil"></i> Edit</button>' +
+          '  <button class="btn btn-danger btn-sm btn-delete-exam" data-id="' + ex.id + '"><i data-lucide="trash-2"></i> Hapus</button>' +
+          '</div></td>';
+        tbody.appendChild(tr);
+
+        const card = document.createElement('div');
+        card.className = 'card card-mobile soal-card';
+        card.innerHTML =
+          '<div class="flex justify-between items-center">' +
+          '  <span class="badge badge-neutral">' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</span>' +
+          '  ' + statusBadge +
+          '</div>' +
+          '<p class="font-medium">' + escapeHtml(ex.judul) + '</p>' +
+          '<span class="hint">' + ex.durasi_menit + ' menit</span>' +
+          '<div class="flex gap-8">' +
+          '  <button class="btn btn-secondary btn-sm btn-edit-exam" data-id="' + ex.id + '"><i data-lucide="pencil"></i> Edit</button>' +
+          '  <button class="btn btn-danger btn-sm btn-delete-exam" data-id="' + ex.id + '"><i data-lucide="trash-2"></i> Hapus</button>' +
+          '</div>';
+        cardList.appendChild(card);
+      });
+
+      // Bind delete
+      document.querySelectorAll('.btn-delete-exam').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          examDeleteTarget = btn.getAttribute('data-id');
+          document.getElementById('deleteModal').classList.add('active');
+        });
+      });
+
+      // Bind edit
+      document.querySelectorAll('.btn-edit-exam').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          startEditExam(btn.getAttribute('data-id'));
+        });
+      });
+      lucide.createIcons();
+    }
+
+    document.getElementById('deleteCancelBtn').addEventListener('click', function () {
+      document.getElementById('deleteModal').classList.remove('active');
+      examDeleteTarget = null;
+    });
+
+    document.getElementById('deleteModal').addEventListener('click', function (e) {
+      if (e.target === this) {
+        this.classList.remove('active');
+        examDeleteTarget = null;
+      }
+    });
+
+    document.getElementById('deleteConfirmBtn').addEventListener('click', async function () {
+      if (!examDeleteTarget) return;
+      const btn = this;
+      const text = document.getElementById('deleteConfirmText');
+      const loader = document.getElementById('deleteConfirmLoader');
+      btn.disabled = true;
+      text.textContent = 'Menghapus...';
+      loader.classList.remove('hidden');
+
+      const { error } = await supabaseClient
+        .from('exams')
+        .delete()
+        .eq('id', examDeleteTarget);
+
+      btn.disabled = false;
+      text.textContent = 'Ya, Hapus';
+      loader.classList.add('hidden');
+
+      if (error) {
+        console.error('Hapus exam error:', error.message);
+        showSnackbar('Gagal menghapus ujian.', 'error');
+        return;
+      }
+
+      document.getElementById('deleteModal').classList.remove('active');
+      examDeleteTarget = null;
+      showSnackbar('Ujian berhasil dihapus.', 'success');
+      await loadExamList();
+    });
+  </script>
+</body>
+</html>

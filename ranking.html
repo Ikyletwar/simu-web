@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Ranking</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/ranking.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav" id="sidebarNav"></nav>
+      <div class="sidebar-footer">
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">-</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <h1 class="page-title">Ranking</h1>
+        <p class="text-muted mb-24">Peringkat berdasarkan rata-rata nilai ujian</p>
+
+        <!-- Filter admin -->
+        <div class="card mb-24" id="adminFilter" style="display:none;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="label" for="admJurusan">Jurusan</label>
+              <select id="admJurusan" class="select">
+                <option value="">Semua Jurusan</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="label" for="admKelas">Kelas</label>
+              <select id="admKelas" class="select">
+                <option value="">Semua Kelas</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-between items-center mt-16 flex-wrap gap-12">
+            <button class="btn btn-primary" id="admFilterBtn">
+              <i data-lucide="filter"></i><span>Terapkan Filter</span>
+            </button>
+            <button class="btn btn-secondary" id="admExportBtn">
+              <i data-lucide="download"></i><span>Export CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab siswa -->
+        <div class="tabs mb-24" id="studentTabs">
+          <button class="tab active" data-tab="global">Global</button>
+          <button class="tab" data-tab="major">Jurusan</button>
+          <button class="tab" data-tab="class">Kelas</button>
+        </div>
+
+        <div id="loadingBox" class="loading">
+          <span class="spinner"></span>
+        </div>
+
+        <div id="emptyState" class="card empty-state hidden">
+          <i data-lucide="inbox"></i>
+          <p class="hint">Belum ada data ranking.</p>
+        </div>
+
+        <!-- Podium top 3 -->
+        <div id="podium" class="podium hidden"></div>
+
+        <!-- List 4-10 -->
+        <div class="card table-wrapper" id="listTable" style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>Peringkat</th>
+                <th>Nama</th>
+                <th>NIS</th>
+                <th>Kelas</th>
+                <th>Jurusan</th>
+                <th>Rata-rata</th>
+              </tr>
+            </thead>
+            <tbody id="rankTableBody"></tbody>
+          </table>
+        </div>
+
+        <div id="rankCardList"></div>
+
+        <!-- Posisi kamu -->
+        <div id="myPosition" class="my-position hidden">
+          <div class="my-position-head flex items-center gap-12">
+            <i data-lucide="trophy"></i>
+            <h2>Posisi Kamu</h2>
+          </div>
+          <div class="flex items-center justify-between gap-12 flex-wrap">
+            <div>
+              <p class="font-bold" id="myPosRank">-</p>
+              <p class="hint" id="myPosName">-</p>
+            </div>
+            <span class="badge badge-neutral" id="myPosValue">-</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/ranking.js"></script>
+</body>
+</html>

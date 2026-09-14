@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Dashboard Admin</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-admin.html" class="nav-item active">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="kelola-soal.html" class="nav-item">
+          <i data-lucide="file-text"></i>
+          <span>Kelola Soal</span>
+        </a>
+        <a href="kelola-ujian.html" class="nav-item">
+          <i data-lucide="clock"></i>
+          <span>Kelola Ujian</span>
+        </a>
+        <a href="laporan.html" class="nav-item">
+          <i data-lucide="clipboard-list"></i>
+          <span>Laporan Nilai</span>
+        </a>
+        <a href="ranking.html?mode=admin" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+        <a href="kelola-siswa.html" class="nav-item">
+          <i data-lucide="users"></i>
+          <span>Data Siswa</span>
+        </a>
+        <a href="kelola-guru.html" class="nav-item">
+          <i data-lucide="graduation-cap"></i>
+          <span>Data Guru</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="ubah-password.html" class="nav-item">
+          <i data-lucide="key-round"></i>
+          <span>Ubah Password</span>
+        </a>
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">Admin</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <h1 class="page-title">Dashboard</h1>
+        <p class="text-muted mb-24" id="welcomeText">Selamat datang kembali.</p>
+
+        <div class="stat-grid">
+          <div class="card stat-card">
+            <div class="stat-icon" id="statSoalIcon"><i data-lucide="file-text"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="statSoal">0</span>
+              <span class="stat-label">Total Soal</span>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon" id="statUjianIcon"><i data-lucide="clock"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="statUjian">0</span>
+              <span class="stat-label">Total Ujian</span>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon" id="statSiswaIcon"><i data-lucide="users"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="statSiswa">0</span>
+              <span class="stat-label">Total Siswa</span>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon" id="statJurusanIcon"><i data-lucide="school"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="statJurusan">0</span>
+              <span class="stat-label">Total Jurusan</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-dash-grid">
+          <div class="card">
+            <div class="flex justify-between items-center mb-16">
+              <h2>Ujian Terbaru</h2>
+              <a href="kelola-ujian.html" class="hint link">Lihat semua</a>
+            </div>
+            <div id="recentExams" class="dash-list"><p class="hint">Memuat...</p></div>
+          </div>
+          <div class="card">
+            <div class="flex justify-between items-center mb-16">
+              <h2>Soal Terbaru</h2>
+              <a href="kelola-soal.html" class="hint link">Lihat semua</a>
+            </div>
+            <div id="recentSoals" class="dash-list"><p class="hint">Memuat...</p></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard('admin');
+      if (!profile) return;
+
+      document.getElementById('userName').textContent = profile.nama || 'Admin';
+      document.getElementById('welcomeText').textContent =
+        'Selamat datang kembali, ' + (profile.nama || 'Admin') + '.';
+
+      // Statistik
+      try {
+        const [soalRes, ujianRes, siswaRes, jurusanRes] = await Promise.all([
+          supabaseClient.from('questions').select('id', { count: 'exact', head: true }),
+          supabaseClient.from('exams').select('id', { count: 'exact', head: true }),
+          supabaseClient.from('users').select('id', { count: 'exact', head: true }).eq('role', 'siswa'),
+          supabaseClient.from('majors').select('id', { count: 'exact', head: true })
+        ]);
+        document.getElementById('statSoal').textContent = soalRes.count ?? 0;
+        document.getElementById('statUjian').textContent = ujianRes.count ?? 0;
+        document.getElementById('statSiswa').textContent = siswaRes.count ?? 0;
+        document.getElementById('statJurusan').textContent = jurusanRes.count ?? 0;
+      } catch (err) {
+        console.error('Statistik gagal dimuat:', err.message);
+      }
+
+      // Ujian & soal terbaru
+      try {
+        const [examRes, subjRes, soalRes] = await Promise.all([
+          supabaseClient.from('exams').select('id, judul, subject_id, tanggal_mulai, tanggal_selesai').order('created_at', { ascending: false }).limit(5),
+          supabaseClient.from('subjects').select('id, nama'),
+          supabaseClient.from('questions').select('id, pertanyaan, subject_id').order('created_at', { ascending: false }).limit(5)
+        ]);
+
+        const subjectMap = {};
+        (subjRes.data || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
+
+        const recentExams = document.getElementById('recentExams');
+        recentExams.innerHTML = '';
+        if (!examRes.data || examRes.data.length === 0) {
+          recentExams.innerHTML = '<p class="hint">Belum ada ujian.</p>';
+        } else {
+          const now = new Date();
+          examRes.data.forEach(function (ex) {
+            const start = new Date(ex.tanggal_mulai);
+            const end = new Date(ex.tanggal_selesai);
+            let statusClass = 'badge-neutral';
+            let statusText = 'Selesai';
+            if (now < start) { statusClass = 'badge-warning'; statusText = 'Segera'; }
+            else if (now <= end) { statusClass = 'badge-primary'; statusText = 'Berlangsung'; }
+            const item = document.createElement('div');
+            item.className = 'dash-item';
+            item.innerHTML =
+              '<a href="kelola-ujian.html" class="dash-item-main">' +
+              '  <span class="font-medium">' + escapeHtml(ex.judul) + '</span>' +
+              '  <span class="hint">' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</span>' +
+              '</a>' +
+              '<span class="badge ' + statusClass + '">' + statusText + '</span>';
+            recentExams.appendChild(item);
+          });
+        }
+
+        const recentSoals = document.getElementById('recentSoals');
+        recentSoals.innerHTML = '';
+        if (!soalRes.data || soalRes.data.length === 0) {
+          recentSoals.innerHTML = '<p class="hint">Belum ada soal.</p>';
+        } else {
+          soalRes.data.forEach(function (q) {
+            const item = document.createElement('div');
+            item.className = 'dash-item';
+            item.innerHTML =
+              '<a href="kelola-soal.html" class="dash-item-main">' +
+              '  <span class="font-medium">' + escapeHtml(truncateText(q.pertanyaan, 60)) + '</span>' +
+              '  <span class="hint">' + escapeHtml(subjectMap[q.subject_id] || '-') + '</span>' +
+              '</a>';
+            recentSoals.appendChild(item);
+          });
+        }
+      } catch (err) {
+        console.error('Ringkasan terbaru gagal dimuat:', err.message);
+      }
+
+      lucide.createIcons();
+
+      // Sidebar hamburger
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      hamburgerBtn.addEventListener('click', function () {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+
+      // Logout
+      document.getElementById('logoutBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        logout();
+      });
+    });
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text == null ? '' : String(text);
+      return div.innerHTML;
+    }
+
+    function truncateText(text, max) {
+      const s = String(text || '');
+      return s.length > max ? s.slice(0, max).trimEnd() + '...' : s;
+    }
+  </script>
+</body>
+</html>

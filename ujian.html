@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Kerjakan Ujian</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/ujian.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="exam-body">
+  <header class="exam-header">
+    <div class="exam-header-left">
+      <a href="dashboard-siswa.html" class="btn btn-ghost btn-sm" id="backBtn">
+        <i data-lucide="x"></i><span>Keluar</span>
+      </a>
+      <h2 id="examTitle">Ujian</h2>
+    </div>
+    <div class="exam-header-right">
+      <span class="hint" id="examProgress">Soal 1 dari 1</span>
+      <span class="badge timer-badge" id="examTimer">00:00</span>
+    </div>
+  </header>
+
+  <div class="exam-container">
+    <div id="loadingBox" class="loading">
+      <span class="spinner"></span>
+    </div>
+
+    <div id="examContent" class="hidden">
+      <div class="card exam-card">
+        <div class="card-topbar flex justify-between items-center mb-24">
+          <h3 id="soalNumber">Soal 1</h3>
+          <span class="badge badge-neutral" id="soalPoin">1 poin</span>
+        </div>
+
+        <p class="exam-question" id="soalPertanyaan"></p>
+
+        <div class="exam-options" id="soalPilihan"></div>
+      </div>
+
+      <div class="exam-nav">
+        <button class="btn btn-secondary" id="prevBtn">
+          <i data-lucide="chevron-left"></i><span>Sebelumnya</span>
+        </button>
+        <button class="btn btn-primary" id="nextBtn">
+          <span id="nextBtnText">Selanjutnya</span>
+          <i data-lucide="chevron-right" id="nextBtnChevron"></i>
+        </button>
+      </div>
+
+      <div class="exam-question-map" id="questionMap"></div>
+    </div>
+  </div>
+
+  <!-- Modal konfirmasi submit -->
+  <div class="modal-overlay" id="submitModal">
+    <div class="modal">
+      <h3 class="modal-title">Submit Ujian?</h3>
+      <p class="modal-text" id="submitModalText">Pastikan semua jawaban sudah diisi sebelum mengirim.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="submitCancelBtn">Tunda</button>
+        <button class="btn btn-primary btn-sm" id="submitConfirmBtn">
+          <span id="submitConfirmText">Ya, Submit</span>
+          <span id="submitConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="js/katex-render.js"></script>
+  <script src="js/format-text.js"></script>
+  <script src="js/ujian.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>
