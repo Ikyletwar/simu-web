@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Koreksi Esai</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-admin.html" class="nav-item">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="kelola-soal.html" class="nav-item">
+          <i data-lucide="file-text"></i>
+          <span>Kelola Soal</span>
+        </a>
+        <a href="kelola-ujian.html" class="nav-item">
+          <i data-lucide="clock"></i>
+          <span>Kelola Ujian</span>
+        </a>
+        <a href="laporan.html" class="nav-item">
+          <i data-lucide="clipboard-list"></i>
+          <span>Laporan Nilai</span>
+        </a>
+        <a href="koreksi-esai.html" class="nav-item active">
+          <i data-lucide="clipboard-check"></i>
+          <span>Koreksi Esai</span>
+        </a>
+        <a href="ranking.html?mode=admin" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+        <a href="kelola-siswa.html" class="nav-item">
+          <i data-lucide="users"></i>
+          <span>Data Siswa</span>
+        </a>
+        <a href="kelola-guru.html" class="nav-item">
+          <i data-lucide="graduation-cap"></i>
+          <span>Data Guru</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="ubah-password.html" class="nav-item">
+          <i data-lucide="key-round"></i>
+          <span>Ubah Password</span>
+        </a>
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">Admin</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="mb-24">
+          <h1 class="page-title">Koreksi Esai</h1>
+          <p class="text-muted hint">Nilai jawaban esai secara massal — per soal untuk penilaian cepat, atau per siswa.</p>
+        </div>
+
+        <div class="card mb-24">
+          <label class="label mb-8" for="examSelect">Pilih Ujian</label>
+          <select id="examSelect" class="select">
+            <option value="">-- Pilih ujian --</option>
+          </select>
+          <p class="hint mt-8">Hanya ujian berisi soal esai yang muncul di daftar.</p>
+        </div>
+
+        <div id="koreksiLoading" class="loading hidden"><span class="spinner"></span></div>
+
+        <div id="koreksiEmpty" class="card empty-state hidden">
+          <i data-lucide="inbox"></i>
+          <p class="hint" id="emptyText">Belum ada data untuk ujian ini.</p>
+        </div>
+
+        <div id="koreksiBody" class="hidden">
+          <div class="stat-grid mb-24">
+            <div class="card stat-card">
+              <div class="stat-icon"><i data-lucide="users"></i></div>
+              <div class="stat-info">
+                <span class="stat-value" id="statPeserta">0</span>
+                <span class="stat-label">Peserta Mengumpulkan</span>
+              </div>
+            </div>
+            <div class="card stat-card">
+              <div class="stat-icon"><i data-lucide="file-text"></i></div>
+              <div class="stat-info">
+                <span class="stat-value" id="statSoalEsai">0</span>
+                <span class="stat-label">Soal Esai</span>
+              </div>
+            </div>
+            <div class="card stat-card">
+              <div class="stat-icon stat-icon-success"><i data-lucide="check-circle"></i></div>
+              <div class="stat-info">
+                <span class="stat-value" id="statDinilai">0</span>
+                <span class="stat-label">Sudah Dinilai</span>
+              </div>
+            </div>
+            <div class="card stat-card">
+              <div class="stat-icon"><i data-lucide="clock"></i></div>
+              <div class="stat-info">
+                <span class="stat-value" id="statBelumDinilai">0</span>
+                <span class="stat-label">Belum Dinilai</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mb-24">
+            <div class="kx-progress-head">
+              <span>Progres penilaian esai</span>
+              <span id="progressText">0/0 (0%)</span>
+            </div>
+            <div class="kx-progress"><div class="kx-progress-bar" id="progressBar" style="width:0%"></div></div>
+            <p class="hint mt-8">Jawaban esai yang dikosongkan siswa tidak ikut dihitung.</p>
+          </div>
+
+          <div class="card">
+            <div class="tabs mb-16">
+              <button type="button" class="tab active" data-mode="soal">Per Soal</button>
+              <button type="button" class="tab" data-mode="siswa">Per Siswa</button>
+            </div>
+
+            <!-- Mode per soal -->
+            <div id="modeSoal">
+              <div class="kx-qchips" id="qChips"></div>
+              <div class="jd-item mb-16">
+                <div class="jd-header">
+                  <span class="jd-num" id="qLabel">Soal 1</span>
+                  <span class="badge badge-warning">Esai</span>
+                </div>
+                <p class="font-medium" id="qText"></p>
+              </div>
+              <div id="perSoalList" class="jd-list"></div>
+              <div class="modal-actions" style="justify-content:flex-start">
+                <button class="btn btn-primary btn-sm" id="saveSoalBtn" disabled>
+                  <span id="saveSoalText">Simpan Penilaian</span>
+                  <span id="saveSoalLoader" class="hidden"><span class="spinner-small"></span></span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Mode per siswa -->
+            <div id="modeSiswa" class="hidden">
+              <div class="kx-nav">
+                <button type="button" class="btn btn-secondary btn-sm" id="prevSiswaBtn">
+                  <i data-lucide="chevron-left"></i> Sebelumnya
+                </button>
+                <select id="siswaSelect" class="select" style="max-width:320px"></select>
+                <button type="button" class="btn btn-secondary btn-sm" id="nextSiswaBtn">
+                  Berikutnya <i data-lucide="chevron-right"></i>
+                </button>
+              </div>
+              <p class="hint mb-16" id="siswaInfo"></p>
+              <div id="perSiswaList" class="jd-list"></div>
+              <div class="modal-actions" style="justify-content:flex-start">
+                <button class="btn btn-primary btn-sm" id="saveSiswaBtn" disabled>
+                  <span id="saveSiswaText">Simpan Penilaian</span>
+                  <span id="saveSiswaLoader" class="hidden"><span class="spinner-small"></span></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="js/katex-render.js"></script>
+  <script src="js/format-text.js"></script>
+  <script>
+    let allExams = [];
+    let classMap = {};
+    let majorMap = {};
+    let subjectMap = {};
+    let allStudents = [];
+    let currentExam = null;
+    let examQuestions = [];
+    let esaiQuestions = [];
+    let subMap = {};
+    let peserta = [];
+    let currentQ = 0;
+    let currentS = 0;
+    let mode = 'soal';
+    let edits = {}; // edits[user_id][question_id] = string nilai (belum disimpan)
+
+    async function buildSidebar(profile) {
+      document.getElementById('userName').textContent = profile.nama || 'Admin';
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      hamburgerBtn.addEventListener('click', function () {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+      document.getElementById('logoutBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        logout();
+      });
+    }
+
+    async function loadReferensi() {
+      const [subjRes, classRes, majorRes, siswaRes] = await Promise.all([
+        supabaseClient.from('subjects').select('id, nama'),
+        supabaseClient.from('classes').select('id, nama'),
+        supabaseClient.from('majors').select('id, nama'),
+        supabaseClient.from('users').select('id, nama, nis, class_id, major_id').eq('role', 'siswa').order('nama')
+      ]);
+      (subjRes.data || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
+      (classRes.data || []).forEach(function (c) { classMap[c.id] = c.nama; });
+      (majorRes.data || []).forEach(function (m) { majorMap[m.id] = m.nama; });
+      allStudents = siswaRes.data || [];
+    }
+
+    // Hanya tampilkan ujian yang punya soal esai (sekali query).
+    async function loadExams() {
+      const esaiRes = await supabaseClient
+        .from('exam_questions')
+        .select('exam_id, questions!inner(tipe)')
+        .eq('questions.tipe', 'esai');
+      const esaiExamIds = {};
+      if (!esaiRes.error) (esaiRes.data || []).forEach(function (r) { esaiExamIds[r.exam_id] = true; });
+
+      const { data, error } = await supabaseClient
+        .from('exams')
+        .select('id, judul, subject_id, class_id, major_id')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+      if (error) {
+        showSnackbar('Gagal memuat ujian.', 'error');
+        return;
+      }
+      allExams = (data || []).filter(function (ex) {
+        return esaiRes.error ? true : esaiExamIds[ex.id];
+      });
+      const sel = document.getElementById('examSelect');
+      allExams.forEach(function (ex) {
+        const opt = document.createElement('option');
+        opt.value = ex.id;
+        opt.textContent = ex.judul + ' (' + (subjectMap[ex.subject_id] || '-') + ')';
+        sel.appendChild(opt);
+      });
+    }
+
+    async function loadExamDetail(examId) {
+      const { data, error } = await supabaseClient
+        .from('exam_questions')
+        .select('question_id, urutan, questions(*)')
+        .eq('exam_id', examId)
+        .order('urutan');
+      if (error) {
+        console.error('exam_questions error:', error.message);
+        return [];
+      }
+      return (data || []).map(function (e) {
+        const q = e.questions;
+        return {
+          question_id: e.question_id,
+          urutan: e.urutan,
+          tipe: q.tipe || 'pg',
+          pertanyaan: q.pertanyaan,
+          pilihan_a: q.pilihan_a,
+          pilihan_b: q.pilihan_b,
+          pilihan_c: q.pilihan_c,
+          pilihan_d: q.pilihan_d,
+          pilihan_e: q.pilihan_e,
+          pilihan_f: q.pilihan_f,
+          jawaban_benar: q.jawaban_benar
+        };
+      });
+    }
+
+    async function loadExamData(examId) {
+      currentExam = allExams.find(function (e) { return e.id === examId; });
+      examQuestions = await loadExamDetail(examId);
+      esaiQuestions = examQuestions.filter(function (q) { return q.tipe === 'esai'; });
+      subMap = {};
+      peserta = [];
+      currentQ = 0;
+      currentS = 0;
+      edits = {};
+
+      if (esaiQuestions.length === 0) return;
+
+      let list = allStudents;
+      if (currentExam.class_id) list = list.filter(function (s) { return kelasCocok(currentExam.class_id, s.class_id, classMap); });
+      if (currentExam.major_id) list = list.filter(function (s) { return s.major_id === currentExam.major_id; });
+
+      const { data: subs, error } = await supabaseClient
+        .from('submissions')
+        .select('user_id, nilai, nilai_esai, jumlah_benar, jawaban, submitted_at')
+        .eq('exam_id', examId);
+      if (error) throw new Error(error.message);
+      (subs || []).forEach(function (s) { subMap[s.user_id] = s; });
+      peserta = list.filter(function (s) { return !!subMap[s.id]; });
+    }
+
+    // ---- Akses data jawaban & nilai ----
+    function savedGrades(uid) {
+      const sub = subMap[uid];
+      return (sub && sub.jawaban && sub.jawaban.__nilai_esai) || {};
+    }
+    function jawabanEsai(uid, qid) {
+      const sub = subMap[uid];
+      const j = (sub && sub.jawaban) || {};
+      return String(j[qid] == null ? '' : j[qid]);
+    }
+    function hasAnswer(uid, qid) { return jawabanEsai(uid, qid).trim() !== ''; }
+    function isGraded(uid, qid) {
+      const g = savedGrades(uid)[qid];
+      return g !== undefined && g !== null;
+    }
+    function gradeValue(uid, qid) {
+      if (edits[uid] && edits[uid][qid] !== undefined) return edits[uid][qid];
+      const g = savedGrades(uid)[qid];
+      return g === undefined || g === null ? '' : String(g);
+    }
+    function setEdit(uid, qid, val) {
+      if (!edits[uid]) edits[uid] = {};
+      edits[uid][qid] = val;
+    }
+
+    function hitungProgress() {
+      let total = 0, done = 0;
+      peserta.forEach(function (s) {
+        esaiQuestions.forEach(function (q) {
+          if (!hasAnswer(s.id, q.question_id)) return;
+          total++;
+          if (isGraded(s.id, q.question_id)) done++;
+        });
+      });
+      return { total: total, done: done };
+    }
+    function perQuestionProgress(qid) {
+      let total = 0, done = 0;
+      peserta.forEach(function (s) {
+        if (!hasAnswer(s.id, qid)) return;
+        total++;
+        if (isGraded(s.id, qid)) done++;
+      });
+      return { total: total, done: done };
+    }
+    function perStudentProgress(uid) {
+      let total = 0, done = 0;
+      esaiQuestions.forEach(function (q) {
+        if (!hasAnswer(uid, q.question_id)) return;
+        total++;
+        if (isGraded(uid, q.question_id)) done++;
+      });
+      return { total: total, done: done };
+    }
+
+    // ---- Render ----
+    function renderAll() {
+      renderStats();
+      if (mode === 'soal') renderPerSoal(); else renderPerSiswa();
+      lucide.createIcons();
+    }
+
+    function renderStats() {
+      const p = hitungProgress();
+      document.getElementById('statPeserta').textContent = peserta.length;
+      document.getElementById('statSoalEsai').textContent = esaiQuestions.length;
+      document.getElementById('statDinilai').textContent = p.done;
+      document.getElementById('statBelumDinilai').textContent = p.total - p.done;
+      const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('progressText').textContent = p.done + '/' + p.total + ' (' + pct + '%)';
+    }
+
+    function renderPerSoal() {
+      const chips = document.getElementById('qChips');
+      chips.innerHTML = '';
+      esaiQuestions.forEach(function (q, i) {
+        const pr = perQuestionProgress(q.question_id);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'kx-chip' + (i === currentQ ? ' active' : '');
+        chip.innerHTML = 'Soal ' + (q.urutan || i + 1) +
+          ' <span class="kx-chip-count">' + pr.done + '/' + pr.total + '</span>';
+        chip.addEventListener('click', function () { currentQ = i; renderAll(); });
+        chips.appendChild(chip);
+      });
+
+      const q = esaiQuestions[currentQ];
+      if (!q) return;
+      document.getElementById('qLabel').textContent = 'Soal ' + (q.urutan || currentQ + 1);
+      document.getElementById('qText').innerHTML = (typeof formatQuestionText === 'function')
+        ? formatQuestionText(q.pertanyaan) : escapeHtml(q.pertanyaan);
+
+      const list = document.getElementById('perSoalList');
+      list.innerHTML = '';
+      peserta.forEach(function (s) {
+        const uid = s.id;
+        const ans = jawabanEsai(uid, q.question_id);
+        const answered = ans.trim() !== '';
+        const item = document.createElement('div');
+        item.className = 'jd-item';
+        const inputId = 'g_' + uid + '_' + q.question_id;
+        item.innerHTML =
+          '<div class="kx-row-head">' +
+            '<div><span class="kx-row-name">' + escapeHtml(s.nama || '-') + '</span>' +
+            ' <span class="kx-row-meta">' + escapeHtml(s.nis || '-') + ' &middot; ' +
+            escapeHtml(classMap[s.class_id] || '-') + '</span></div>' +
+            (isGraded(uid, q.question_id)
+              ? '<span class="badge badge-success">Sudah dinilai</span>'
+              : '<span class="badge badge-warning">Belum dinilai</span>') +
+          '</div>' +
+          '<div class="kx-answer' + (answered ? '' : ' empty') + '">' +
+            (answered ? escapeHtml(ans) : 'Tidak dijawab') +
+          '</div>' +
+          '<div class="kx-grade-row">' +
+            '<label class="hint" for="' + inputId + '">Nilai (0-100)</label>' +
+            '<input type="number" min="0" max="100" step="1" class="input" id="' + inputId + '"' +
+              ' value="' + escapeHtml(gradeValue(uid, q.question_id)) + '"' +
+              (answered ? '' : ' disabled') + '>' +
+          '</div>';
+        list.appendChild(item);
+
+        const input = item.querySelector('input');
+        if (input && answered) {
+          input.addEventListener('input', function () {
+            setEdit(uid, q.question_id, input.value);
+            updateSaveState();
+          });
+          input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const inputs = Array.prototype.slice.call(list.querySelectorAll('input:not([disabled])'));
+              const idx = inputs.indexOf(input);
+              if (idx >= 0 && idx < inputs.length - 1) inputs[idx + 1].focus();
+            }
+          });
+        }
+      });
+      updateSaveState();
+    }
+
+    function renderPerSiswa() {
+      const sel = document.getElementById('siswaSelect');
+      sel.innerHTML = '';
+      peserta.forEach(function (s, i) {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = (s.nama || '-') + ' (' + (s.nis || '-') + ')';
+        sel.appendChild(opt);
+      });
+
+      const list = document.getElementById('perSiswaList');
+      const info = document.getElementById('siswaInfo');
+
+      if (peserta.length === 0) {
+        sel.disabled = true;
+        info.textContent = '';
+        list.innerHTML = '<p class="hint">Belum ada siswa yang mengumpulkan ujian ini.</p>';
+        updateSaveState();
+        return;
+      }
+      sel.disabled = false;
+      if (currentS >= peserta.length) currentS = peserta.length - 1;
+      if (currentS < 0) currentS = 0;
+      sel.value = String(currentS);
+
+      const s = peserta[currentS];
+      const uid = s.id;
+      const sub = subMap[uid];
+      const p = perStudentProgress(uid);
+      info.innerHTML =
+        'Siswa ' + (currentS + 1) + ' dari ' + peserta.length + ' &middot; ' +
+        p.done + '/' + p.total + ' soal esai dinilai &middot; Nilai saat ini: <b>' +
+        formatNilai(sub ? sub.nilai : null) + '</b>';
+
+      list.innerHTML = '';
+      esaiQuestions.forEach(function (q) {
+        const ans = jawabanEsai(uid, q.question_id);
+        const answered = ans.trim() !== '';
+        const item = document.createElement('div');
+        item.className = 'jd-item';
+        const inputId = 's_' + uid + '_' + q.question_id;
+        item.innerHTML =
+          '<div class="jd-header">' +
+            '<span class="jd-num">Soal ' + (q.urutan || 0) + '</span>' +
+            '<span class="badge badge-warning">Esai</span>' +
+            (isGraded(uid, q.question_id)
+              ? ' <span class="badge badge-success">Nilai ' + formatNilai(savedGrades(uid)[q.question_id]) + '</span>'
+              : '') +
+          '</div>' +
+          '<p class="font-medium mb-8">' +
+            ((typeof formatQuestionText === 'function') ? formatQuestionText(q.pertanyaan) : escapeHtml(q.pertanyaan)) +
+          '</p>' +
+          '<div class="kx-answer' + (answered ? '' : ' empty') + '">' +
+            (answered ? escapeHtml(ans) : 'Tidak dijawab') +
+          '</div>' +
+          '<div class="kx-grade-row">' +
+            '<label class="hint" for="' + inputId + '">Nilai (0-100)</label>' +
+            '<input type="number" min="0" max="100" step="1" class="input" id="' + inputId + '"' +
+              ' value="' + escapeHtml(gradeValue(uid, q.question_id)) + '"' +
+              (answered ? '' : ' disabled') + '>' +
+          '</div>';
+        list.appendChild(item);
+
+        const input = item.querySelector('input');
+        if (input && answered) {
+          input.addEventListener('input', function () {
+            setEdit(uid, q.question_id, input.value);
+            updateSaveState();
+          });
+        }
+      });
+      updateSaveState();
+    }
+
+    // ---- Simpan ----
+    function pendingEdits() {
+      const out = [];
+      if (mode === 'soal') {
+        if (esaiQuestions.length === 0) return out;
+        const qid = esaiQuestions[currentQ].question_id;
+        peserta.forEach(function (s) {
+          if (edits[s.id] && edits[s.id][qid] !== undefined) out.push({ uid: s.id, qid: qid, val: edits[s.id][qid] });
+        });
+        return out;
+      }
+      if (peserta.length === 0) return out;
+      const uid = peserta[currentS].id;
+      Object.keys(edits[uid] || {}).forEach(function (qid) {
+        out.push({ uid: uid, qid: qid, val: edits[uid][qid] });
+      });
+      return out;
+    }
+
+    function updateSaveState() {
+      const n = pendingEdits().length;
+      const btn = document.getElementById(mode === 'soal' ? 'saveSoalBtn' : 'saveSiswaBtn');
+      const txt = document.getElementById(mode === 'soal' ? 'saveSoalText' : 'saveSiswaText');
+      if (!btn || !txt) return;
+      btn.disabled = n === 0;
+      txt.textContent = n > 0 ? 'Simpan ' + n + ' Penilaian' : 'Simpan Penilaian';
+    }
+
+    async function simpanSatu(uid, partial) {
+      const sub = subMap[uid];
+      if (!sub) return;
+      const grades = Object.assign({}, savedGrades(uid));
+      Object.keys(partial).forEach(function (qid) {
+        if (partial[qid] == null) delete grades[qid];
+        else grades[qid] = partial[qid];
+      });
+      const pgCount = examQuestions.length - esaiQuestions.length;
+      const benarPG = parseInt(sub.jumlah_benar || 0, 10) || 0;
+      const res = hitungNilaiEsai(benarPG, pgCount, grades);
+      const oldJawaban = sub.jawaban || {};
+      const newJawaban = Object.assign({}, oldJawaban, { __nilai_esai: grades });
+
+      const { error } = await supabaseClient
+        .from('submissions')
+        .update({ jawaban: newJawaban, nilai: res.nilaiFinal, nilai_esai: res.nilaiEsaiAvg })
+        .eq('exam_id', currentExam.id)
+        .eq('user_id', uid);
+      if (error) throw new Error(error.message);
+
+      sub.jawaban = newJawaban;
+      sub.nilai = res.nilaiFinal;
+      sub.nilai_esai = res.nilaiEsaiAvg;
+    }
+
+    async function simpanPerSoal() {
+      const pending = pendingEdits();
+      if (pending.length === 0) return;
+      const btn = document.getElementById('saveSoalBtn');
+      const text = document.getElementById('saveSoalText');
+      const loader = document.getElementById('saveSoalLoader');
+      btn.disabled = true;
+      text.textContent = 'Menyimpan...';
+      loader.classList.remove('hidden');
+      try {
+        await Promise.all(pending.map(function (p) {
+          const partial = {};
+          partial[p.qid] = normalisasiNilaiEsai(p.val);
+          return simpanSatu(p.uid, partial);
+        }));
+        pending.forEach(function (p) { if (edits[p.uid]) delete edits[p.uid][p.qid]; });
+        showSnackbar(pending.length + ' penilaian disimpan.', 'success');
+      } catch (e) {
+        console.error('simpan per soal error:', e.message || e);
+        showSnackbar('Gagal menyimpan: ' + (e.message || e), 'error');
+      } finally {
+        loader.classList.add('hidden');
+        renderAll();
+      }
+    }
+
+    async function simpanPerSiswa() {
+      const pending = pendingEdits();
+      if (pending.length === 0 || peserta.length === 0) return;
+      const uid = peserta[currentS].id;
+      const btn = document.getElementById('saveSiswaBtn');
+      const text = document.getElementById('saveSiswaText');
+      const loader = document.getElementById('saveSiswaLoader');
+      btn.disabled = true;
+      text.textContent = 'Menyimpan...';
+      loader.classList.remove('hidden');
+      try {
+        const partial = {};
+        pending.forEach(function (p) { partial[p.qid] = normalisasiNilaiEsai(p.val); });
+        await simpanSatu(uid, partial);
+        pending.forEach(function (p) { if (edits[uid]) delete edits[uid][p.qid]; });
+        showSnackbar(pending.length + ' penilaian disimpan.', 'success');
+      } catch (e) {
+        console.error('simpan per siswa error:', e.message || e);
+        showSnackbar('Gagal menyimpan: ' + (e.message || e), 'error');
+      } finally {
+        loader.classList.add('hidden');
+        renderAll();
+      }
+    }
+
+    async function tampilkanKoreksi() {
+      const examId = document.getElementById('examSelect').value;
+      const body = document.getElementById('koreksiBody');
+      const loading = document.getElementById('koreksiLoading');
+      const empty = document.getElementById('koreksiEmpty');
+
+      if (!examId) {
+        body.classList.add('hidden');
+        empty.classList.add('hidden');
+        return;
+      }
+
+      body.classList.add('hidden');
+      empty.classList.add('hidden');
+      loading.classList.remove('hidden');
+
+      try {
+        await loadExamData(examId);
+      } catch (e) {
+        loading.classList.add('hidden');
+        showSnackbar('Gagal memuat data: ' + (e.message || e), 'error');
+        return;
+      }
+
+      loading.classList.add('hidden');
+      if (esaiQuestions.length === 0) {
+        document.getElementById('emptyText').textContent = 'Ujian ini tidak memiliki soal esai.';
+        empty.classList.remove('hidden');
+        return;
+      }
+      if (peserta.length === 0) {
+        document.getElementById('emptyText').textContent = 'Belum ada siswa yang mengumpulkan ujian ini.';
+        empty.classList.remove('hidden');
+        return;
+      }
+      body.classList.remove('hidden');
+      renderAll();
+    }
+
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard(['admin', 'guru']);
+      if (!profile) return;
+      await buildSidebar(profile);
+      await loadReferensi();
+      await loadExams();
+      lucide.createIcons();
+
+      const param = new URLSearchParams(window.location.search).get('exam');
+      if (param) {
+        const sel = document.getElementById('examSelect');
+        const exists = Array.prototype.some.call(sel.options, function (o) { return o.value === param; });
+        if (exists) {
+          sel.value = param;
+          await tampilkanKoreksi();
+        }
+      }
+    });
+
+    document.getElementById('examSelect').addEventListener('change', tampilkanKoreksi);
+    document.getElementById('saveSoalBtn').addEventListener('click', simpanPerSoal);
+    document.getElementById('saveSiswaBtn').addEventListener('click', simpanPerSiswa);
+    document.getElementById('prevSiswaBtn').addEventListener('click', function () {
+      if (currentS > 0) { currentS--; renderPerSiswa(); lucide.createIcons(); }
+    });
+    document.getElementById('nextSiswaBtn').addEventListener('click', function () {
+      if (currentS < peserta.length - 1) { currentS++; renderPerSiswa(); lucide.createIcons(); }
+    });
+    document.getElementById('siswaSelect').addEventListener('change', function () {
+      currentS = parseInt(this.value, 10) || 0;
+      renderPerSiswa();
+      lucide.createIcons();
+    });
+    document.querySelectorAll('.tab[data-mode]').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        mode = tab.getAttribute('data-mode');
+        document.querySelectorAll('.tab[data-mode]').forEach(function (t) {
+          t.classList.toggle('active', t === tab);
+        });
+        document.getElementById('modeSoal').classList.toggle('hidden', mode !== 'soal');
+        document.getElementById('modeSiswa').classList.toggle('hidden', mode !== 'siswa');
+        renderAll();
+      });
+    });
+  </script>
+</body>
+</html>

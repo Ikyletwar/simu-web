@@ -153,9 +153,9 @@ async function loginAdmin() {
       throw new Error('Akun tidak ditemukan. Hubungi administrator.');
     }
 
-    if (profile.role !== 'admin') {
+    if (profile.role !== 'admin' && profile.role !== 'guru') {
       await supabaseClient.auth.signOut();
-      throw new Error('Akun ini bukan akun admin.');
+      throw new Error('Akun ini bukan akun admin/guru.');
     }
 
     window.location.href = 'dashboard-admin.html';
@@ -182,8 +182,52 @@ async function logout() {
 
 // ============================================================
 // GUARD - proteksi halaman berdasarkan role
-// guard('siswa') atau guard('admin') atau guard() (login saja)
+// guard('siswa') / guard('admin') / guard(['admin','guru']) / guard()
 // ============================================================
+function roleDiizinkan(roleParam, roleUser) {
+  if (!roleParam) return true;
+  if (Array.isArray(roleParam)) return roleParam.indexOf(roleUser) >= 0;
+  return roleUser === roleParam;
+}
+
+// Terapkan pembatasan menu untuk guru & blokir guru tanpa mapel.
+// Mengembalikan true bila boleh lanjut, false bila diblokir.
+function terapkanAksesMenu(profile) {
+  if (!profile || profile.role !== 'guru') return true;
+
+  // Sembunyikan menu khusus admin penuh (Data Guru & Backup).
+  document.querySelectorAll('a.nav-item').forEach(function (a) {
+    const href = a.getAttribute('href') || '';
+    if (href.indexOf('kelola-guru.html') >= 0 || href.indexOf('backup.html') >= 0) {
+      a.style.display = 'none';
+    }
+  });
+
+  // Guru wajib punya mapel. Kecuali di halaman ubah password.
+  if (!profile.subject_id && window.location.pathname.indexOf('ubah-password.html') < 0) {
+    tampilkanBlokirMapel();
+    return false;
+  }
+  return true;
+}
+
+function tampilkanBlokirMapel() {
+  if (document.getElementById('mapelBlockOverlay')) return;
+  const el = document.createElement('div');
+  el.id = 'mapelBlockOverlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  el.innerHTML =
+    '<div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;text-align:center;">' +
+    '<h3 style="margin:0 0 8px;font-size:18px;">Mapel belum diatur</h3>' +
+    '<p style="margin:0 0 16px;color:#404040;font-size:14px;">Akun Anda belum memiliki mata pelajaran. ' +
+    'Hubungi admin sekolah untuk mengatur mapel yang Anda ampu.</p>' +
+    '<button id="mapelBlockLogout" style="padding:8px 16px;border:none;border-radius:8px;background:#0A0A0A;color:#fff;cursor:pointer;font-size:14px;">Keluar</button>' +
+    '</div>';
+  document.body.appendChild(el);
+  const btn = document.getElementById('mapelBlockLogout');
+  if (btn) btn.addEventListener('click', logout);
+}
+
 async function guard(role) {
   // 1. Coba baca session dari storage.
   let { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
@@ -223,14 +267,16 @@ async function guard(role) {
     return null;
   }
 
-  if (role && profile.role !== role) {
-    if (profile.role === 'admin') {
+  if (!roleDiizinkan(role, profile.role)) {
+    if (profile.role === 'admin' || profile.role === 'guru') {
       window.location.href = 'dashboard-admin.html';
     } else {
       window.location.href = 'dashboard-siswa.html';
     }
     return null;
   }
+
+  if (!terapkanAksesMenu(profile)) return null;
 
   return profile;
 }

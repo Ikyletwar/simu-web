@@ -795,3 +795,132 @@ tbody tr:hover {
   word-break: break-all;
   color: var(--black-700);
 }
+
+/* ============================================================
+   KOREKSI ESAI MASSAL
+   ============================================================ */
+.kx-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--black-500);
+  margin-bottom: 8px;
+}
+
+.kx-progress {
+  height: 10px;
+  background: var(--black-100);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.kx-progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--success);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.kx-qchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.kx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--black-100);
+  border-radius: 999px;
+  background: var(--white);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--black-500);
+  cursor: pointer;
+  font-family: var(--font-family);
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+
+.kx-chip:hover {
+  border-color: var(--black-300);
+  color: var(--black-900);
+}
+
+.kx-chip.active {
+  background: var(--black-900);
+  border-color: var(--black-900);
+  color: var(--white);
+}
+
+.kx-chip-count {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.kx-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.kx-row-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.kx-row-meta {
+  font-size: 12px;
+  color: var(--black-300);
+}
+
+.kx-answer {
+  background: #f9fafb;
+  border: 1px solid #e4e4e7;
+  border-left: 3px solid #18181b;
+  border-radius: 6px;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  font-size: 14px;
+  color: var(--black-900);
+}
+
+.kx-answer.empty {
+  color: var(--black-300);
+  font-style: italic;
+}
+
+.kx-grade-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.kx-grade-row .input {
+  width: 110px;
+}
+
+.kx-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 600px) {
+  .kx-grade-row .input {
+    width: 100%;
+  }
+}

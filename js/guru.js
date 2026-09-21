@@ -152,7 +152,7 @@ async function loadGuru() {
   const loadingBox = document.getElementById('loadingBox');
   const [subjRes, guruRes] = await Promise.all([
     supabaseClient.from('subjects').select('id, nama').order('nama'),
-    supabaseClient.from('users').select('id, email, nama, subject_id').eq('role', 'admin').order('nama')
+    supabaseClient.from('users').select('id, email, nama, subject_id, role').in('role', ['admin', 'guru']).order('nama')
   ]);
 
   guruSubjectName = {};
@@ -207,15 +207,18 @@ function applyGuruFilter() {
 
   filtered.forEach(function (g) {
     const isSelf = g.id === currentProfile.id;
-    const subjName = guruSubjectName[g.subject_id] || 'Tidak ditentukan';
+    const subjName = g.role === 'admin' ? 'Semua mapel' : (guruSubjectName[g.subject_id] || 'Belum diatur');
     const badge = isSelf ? ' <span class="badge badge-outline">Akun Anda</span>' : '';
+    const roleBadge = g.role === 'admin'
+      ? ' <span class="badge badge-outline">Admin Penuh</span>'
+      : ' <span class="badge badge-outline">Guru</span>';
     const resetBtn = '<button class="btn btn-secondary btn-sm btn-reset-guru" data-id="' + g.id + '" data-nama="' + escapeHtml(g.nama || '') + '"><i data-lucide="key-round"></i> Reset</button>';
     const editBtn = '<button class="btn btn-secondary btn-sm btn-edit-guru" data-id="' + g.id + '"><i data-lucide="pencil"></i> Edit</button>';
     const delBtn = '<button class="btn btn-danger btn-sm btn-delete-guru" data-id="' + g.id + '" data-nama="' + escapeHtml(g.nama || '') + '"><i data-lucide="trash-2"></i> Hapus</button>';
 
     const tr = document.createElement('tr');
     tr.innerHTML =
-      '<td class="font-medium">' + escapeHtml(g.nama || '-') + badge + '</td>' +
+      '<td class="font-medium">' + escapeHtml(g.nama || '-') + badge + roleBadge + '</td>' +
       '<td class="hint">' + escapeHtml(g.email || '-') + '</td>' +
       '<td>' + escapeHtml(subjName) + '</td>' +
       '<td>' + editBtn + ' ' + resetBtn + ' ' + delBtn + '</td>';
@@ -224,7 +227,7 @@ function applyGuruFilter() {
     const card = document.createElement('div');
     card.className = 'card card-mobile soal-card';
     card.innerHTML =
-      '<p class="font-medium">' + escapeHtml(g.nama || '-') + badge + '</p>' +
+      '<p class="font-medium">' + escapeHtml(g.nama || '-') + badge + roleBadge + '</p>' +
       '<p class="hint">' + escapeHtml(g.email || '-') + '</p>' +
       '<p class="hint">Mapel: ' + escapeHtml(subjName) + '</p>' +
       '<div class="mt-12">' + editBtn + ' ' + resetBtn + ' ' + delBtn + '</div>';
@@ -297,6 +300,11 @@ async function confirmAddGuru() {
   }
   if (password.length < 6) {
     errEl.textContent = 'Password minimal 6 karakter.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (!subject_id) {
+    errEl.textContent = 'Mata pelajaran yang diampu wajib dipilih.';
     errEl.classList.remove('hidden');
     return;
   }
@@ -415,6 +423,8 @@ function openEditGuruModal(id) {
   guruTarget = id;
   document.getElementById('guruEditName').textContent = g.nama || '';
   document.getElementById('guruEditNama').value = g.nama || '';
+  const roleEl = document.getElementById('guruEditRole');
+  if (roleEl) roleEl.value = g.role || 'guru';
   document.getElementById('guruEditSubject').value = g.subject_id || '';
   document.getElementById('guruEditEmail').value = '';
   document.getElementById('guruEditEmail').placeholder = g.email || 'email atau username';
@@ -437,6 +447,8 @@ async function confirmEditGuru() {
 
   const nama = (document.getElementById('guruEditNama').value || '').trim();
   const subjectVal = document.getElementById('guruEditSubject').value || '';
+  const roleEl = document.getElementById('guruEditRole');
+  const roleVal = (roleEl ? roleEl.value : (g.role || 'guru')) || 'guru';
   const email = (document.getElementById('guruEditEmail').value || '').trim().toLowerCase();
   const password = document.getElementById('guruEditPassword').value || '';
 
@@ -444,12 +456,18 @@ async function confirmEditGuru() {
     showSnackbar('Nama lengkap wajib diisi.', 'error');
     return;
   }
+  if (roleVal === 'guru' && !subjectVal) {
+    showSnackbar('Guru wajib punya mata pelajaran yang diampu.', 'error');
+    return;
+  }
   if (password && password.length < 6) {
     showSnackbar('Password minimal 6 karakter.', 'error');
     return;
   }
 
-  const profilBerubah = (nama !== (g.nama || '')) || (subjectVal !== (g.subject_id || ''));
+  const profilBerubah = (nama !== (g.nama || '')) ||
+    (subjectVal !== (g.subject_id || '')) ||
+    (roleVal !== (g.role || 'guru'));
   const loginBerubah = email !== '' || password !== '';
 
   if (!profilBerubah && !loginBerubah) {
@@ -468,7 +486,8 @@ async function confirmEditGuru() {
       p_user_id: guruTarget,
       p_nama: nama,
       p_subject_id: subjectVal || null,
-      p_clear_subject: subjectVal === ''
+      p_clear_subject: subjectVal === '',
+      p_role: roleVal
     });
     if (error) {
       confirmBtn.disabled = false;

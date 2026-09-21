@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     mode = 'admin';
   }
 
-  profile = await guard(mode === 'admin' ? 'admin' : 'siswa');
+  profile = await guard(mode === 'admin' ? ['admin', 'guru'] : 'siswa');
   if (!profile) return;
 
   await initSidebar();

@@ -17,6 +17,9 @@ Aplikasi ujian sekolah berbasis web untuk **SMK Negeri 1 Maluku Tengah**.
 - Soal bisa berisi **blok kode** (diapit ` ``` `) yang ditampilkan rapi seperti editor kode
 - Mendukung **soal esai/uraian** (dijawab menulis teks, tidak dikoreksi otomatis; guru
   menilai manual di menu Laporan Nilai)
+- **Koreksi esai massal** (halaman Koreksi Esai): nilai satu soal esai untuk semua siswa
+  sekaligus (mode *Per Soal*) atau nilai semua esai satu siswa (mode *Per Siswa*), dengan
+  progres penilaian
 - Ujian bisa diarahkan ke **kelas (X/XI/XII)** dan **jurusan (kode pendek: MPLB, AKL, PMS, ULP, TJKT, TK)**
 - **Jadwal ujian**: tanggal & jam mulai/selesai; dashboard siswa tampil countdown real-time
   dan otomatis pindah ke bagian "Ujian Tersedia" saat waktunya tiba
@@ -56,6 +59,7 @@ simu-web/
 ├── hasil.html              halaman hasil ujian
 ├── ranking.html            halaman ranking (siswa & admin)
 ├── laporan.html            laporan nilai per ujian (admin)
+├── koreksi-esai.html       koreksi esai massal: per soal & per siswa (admin)
 ├── ubah-password.html      ubah password (admin & siswa)
 ├── kelola-soal.html        daftar bank soal (import & export)
 ├── form-soal.html          form tambah/edit soal
@@ -213,7 +217,18 @@ tampil sebagai teks `$...$` biasa.
 - Guru menilai manual di **Laporan Nilai → tombol Detail** siswa: jawaban esai tampil,
   isi nilai 0–100, lalu klik **Simpan Penilaian Esai**. Nilai akhir dihitung ulang
   dengan bobot satu soal = satu poin (PG benar + nilai esai di-skala ke 100).
-- Persyaratan: SQL `11-fase9-esai-kelas.sql` harus sudah dijalankan.
+- **Koreksi Esai Massal** — halaman **Koreksi Esai** (menu sidebar) mempercepat koreksi:
+  - Pilih ujian (hanya ujian berisi esai yang muncul).
+  - Mode **Per Soal**: pilih satu soal, semua jawaban siswa tampil berurutan; isi nilai
+    beberapa siswa lalu **Simpan** sekaligus. Tekan **Enter** untuk pindah ke siswa berikutnya.
+  - Mode **Per Siswa**: nilai semua soal esai satu siswa, lalu pindah siswa lewat tombol
+    Sebelumnya/Berikutnya.
+  - Progres penilaian (sudah/belum dinilai) tampil per soal, per siswa, dan keseluruhan.
+  - Nilai akhir dihitung dengan rumus yang sama seperti di Laporan Nilai.
+  - Tombol **Koreksi Esai** juga tersedia di halaman Laporan Nilai (otomatis membuka ujian
+    yang sedang dipilih).
+- Persyaratan: SQL `11-fase9-esai-kelas.sql` harus sudah dijalankan. Halaman Koreksi Esai
+  tidak butuh SQL tambahan (memakai policy `submissions_update_admin` yang sama).
 
 ## Keamanan Ujian (Anti Curang, Autosave & Jadwal)
 

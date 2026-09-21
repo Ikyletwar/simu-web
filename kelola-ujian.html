@@ -37,6 +37,10 @@
           <i data-lucide="clipboard-list"></i>
           <span>Laporan Nilai</span>
         </a>
+        <a href="koreksi-esai.html" class="nav-item">
+          <i data-lucide="clipboard-check"></i>
+          <span>Koreksi Esai</span>
+        </a>
         <a href="ranking.html?mode=admin" class="nav-item">
           <i data-lucide="bar-chart"></i>
           <span>Ranking</span>
@@ -223,7 +227,7 @@
     let kelasList = [];
 
     document.addEventListener('DOMContentLoaded', async function () {
-      const profile = await guard('admin');
+      const profile = await guard(['admin', 'guru']);
       if (!profile) return;
 
       document.getElementById('userName').textContent = profile.nama || 'Admin';
@@ -305,6 +309,13 @@
 
       // Load soal saat mapel dipilih (fungsi top-level di bawah)
       subjectSelect.addEventListener('change', function () { loadQuestionPicker(); });
+
+      // Guru: mapel dikunci ke mapel yang diampu.
+      if (profile.role === 'guru' && profile.subject_id) {
+        subjectSelect.value = profile.subject_id;
+        subjectSelect.disabled = true;
+        loadQuestionPicker();
+      }
       kelasSelect.addEventListener('change', syncExactClass);
       jurusanSelect.addEventListener('change', syncExactClass);
       document.getElementById('resetBtn').addEventListener('click', function () {

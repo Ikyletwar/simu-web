@@ -38,6 +38,10 @@
           <i data-lucide="clipboard-list"></i>
           <span>Laporan Nilai</span>
         </a>
+        <a href="koreksi-esai.html" class="nav-item">
+          <i data-lucide="clipboard-check"></i>
+          <span>Koreksi Esai</span>
+        </a>
         <a href="ranking.html?mode=admin" class="nav-item">
           <i data-lucide="bar-chart"></i>
           <span>Ranking</span>
@@ -367,7 +371,7 @@ Jenis: Esai</pre>
   <script src="js/soal.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async function () {
-      const profile = await guard('admin');
+      const profile = await guard(['admin', 'guru']);
       if (!profile) return;
 
       document.getElementById('userName').textContent = profile.nama || 'Admin';

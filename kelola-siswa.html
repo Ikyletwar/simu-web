@@ -37,6 +37,10 @@
           <i data-lucide="clipboard-list"></i>
           <span>Laporan Nilai</span>
         </a>
+        <a href="koreksi-esai.html" class="nav-item">
+          <i data-lucide="clipboard-check"></i>
+          <span>Koreksi Esai</span>
+        </a>
         <a href="ranking.html?mode=admin" class="nav-item">
           <i data-lucide="bar-chart"></i>
           <span>Ranking</span>
@@ -80,7 +84,7 @@
             <h1 class="page-title">Data Siswa</h1>
             <p class="text-muted hint">Lihat dan atur akun siswa terdaftar</p>
           </div>
-          <div class="flex gap-8 flex-wrap">
+          <div class="flex gap-8 flex-wrap" id="siswaAdminActions">
             <button class="btn btn-primary" id="addSiswaBtn">
               <i data-lucide="user-plus"></i>
               <span>Tambah Siswa</span>
@@ -345,6 +349,7 @@
     let editUserId = null;
     let resetSiswaId = null;
     let deleteSiswaId = null;
+    let isGuruReadOnly = false;
     let loginSiswaId = null;
     let editKelasEl = null;
     let editJurusanEl = null;
@@ -399,10 +404,16 @@
     }
 
     document.addEventListener('DOMContentLoaded', async function () {
-      const profile = await guard('admin');
+      const profile = await guard(['admin', 'guru']);
       if (!profile) return;
 
       setupSidebar(profile);
+
+      isGuruReadOnly = profile.role === 'guru';
+      if (isGuruReadOnly) {
+        const actions = document.getElementById('siswaAdminActions');
+        if (actions) actions.style.display = 'none';
+      }
 
       // Load referensi kelas & jurusan
       const [classRes, majorRes] = await Promise.all([
@@ -562,13 +573,14 @@
       tableCard.style.display = 'block';
 
       list.forEach(function (s) {
-        const actions =
-          '<div class="flex gap-8 flex-wrap">' +
-          '  <button class="btn btn-secondary btn-sm btn-edit-siswa" data-id="' + s.id + '"><i data-lucide="pencil"></i> Atur</button>' +
-          '  <button class="btn btn-secondary btn-sm btn-login-siswa" data-id="' + s.id + '"><i data-lucide="user-cog"></i> Login</button>' +
-          '  <button class="btn btn-secondary btn-sm btn-reset-siswa" data-id="' + s.id + '"><i data-lucide="key-round"></i> Reset</button>' +
-          '  <button class="btn btn-danger btn-sm btn-delete-siswa" data-id="' + s.id + '"><i data-lucide="trash-2"></i> Hapus</button>' +
-          '</div>';
+        const actions = isGuruReadOnly
+          ? '<span class="hint">Lihat saja</span>'
+          : ('<div class="flex gap-8 flex-wrap">' +
+            '  <button class="btn btn-secondary btn-sm btn-edit-siswa" data-id="' + s.id + '"><i data-lucide="pencil"></i> Atur</button>' +
+            '  <button class="btn btn-secondary btn-sm btn-login-siswa" data-id="' + s.id + '"><i data-lucide="user-cog"></i> Login</button>' +
+            '  <button class="btn btn-secondary btn-sm btn-reset-siswa" data-id="' + s.id + '"><i data-lucide="key-round"></i> Reset</button>' +
+            '  <button class="btn btn-danger btn-sm btn-delete-siswa" data-id="' + s.id + '"><i data-lucide="trash-2"></i> Hapus</button>' +
+            '</div>');
 
         const tr = document.createElement('tr');
         tr.innerHTML =

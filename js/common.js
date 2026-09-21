@@ -57,3 +57,36 @@ function kelasCocok(idTarget, idSiswa, classMap) {
   if (/\d$/.test(namaTarget)) return false;
   return kelasBasis(namaTarget) === kelasBasis(namaSiswa);
 }
+
+// ============================================================
+// Penilaian esai
+// ============================================================
+
+// Normalisasi satu nilai esai ke rentang 0-100 (1 desimal).
+function normalisasiNilaiEsai(value) {
+  const v = parseFloat(value);
+  if (!isFinite(v)) return null;
+  return Math.min(100, Math.max(0, Math.round(v * 10) / 10));
+}
+
+// Hitung nilai akhir ujian + rata-rata nilai esai dari jawaban PG & esai.
+//   benarPG  : jumlah soal pilihan ganda yang benar
+//   pgCount  : banyaknya soal pilihan ganda pada ujian
+//   grades   : objek { question_id: nilai_esai } — hanya soal yang SUDAH dinilai
+// Tiap soal berbobot sama (1 poin); esai menyumbang (nilai/100) poin.
+// Soal esai yang belum dinilai tidak dihitung agar tidak tercampur nilai 0.
+// Saat semua esai dinilai, hasilnya = nilai penuh ujian.
+// Dipakai bersama oleh laporan.html & koreksi-esai.html.
+function hitungNilaiEsai(benarPG, pgCount, grades) {
+  const keys = Object.keys(grades || {});
+  let esaiPoints = 0;
+  keys.forEach(function (k) { esaiPoints += (parseFloat(grades[k]) || 0) / 100; });
+  const totalGraded = (pgCount || 0) + keys.length;
+  const nilaiFinal = totalGraded > 0
+    ? Math.round(((benarPG + esaiPoints) / totalGraded) * 100 * 100) / 100
+    : 0;
+  const nilaiEsaiAvg = keys.length > 0
+    ? Math.round((keys.reduce(function (a, k) { return a + (parseFloat(grades[k]) || 0); }, 0) / keys.length) * 100) / 100
+    : null;
+  return { nilaiFinal: nilaiFinal, nilaiEsaiAvg: nilaiEsaiAvg, gradedCount: keys.length };
+}

@@ -36,6 +36,10 @@
           <i data-lucide="clipboard-list"></i>
           <span>Laporan Nilai</span>
         </a>
+        <a href="koreksi-esai.html" class="nav-item">
+          <i data-lucide="clipboard-check"></i>
+          <span>Koreksi Esai</span>
+        </a>
         <a href="ranking.html?mode=admin" class="nav-item">
           <i data-lucide="bar-chart"></i>
           <span>Ranking</span>
@@ -124,7 +128,7 @@
   <div class="modal-overlay" id="guruAddModal">
     <div class="modal">
       <h3 class="modal-title">Tambah Guru</h3>
-      <p class="modal-text">Akun baru berperan admin. Guru dapat masuk dengan email <b>atau username</b> &amp; password ini.</p>
+      <p class="modal-text">Akun baru berperan <b>guru</b> dan hanya bisa mengakses mata pelajaran yang dipilih. Guru dapat masuk dengan email <b>atau username</b> &amp; password ini.</p>
 
       <div class="form-group mb-16">
         <label class="label" for="guruNama">Nama Lengkap</label>
@@ -146,8 +150,9 @@
         <span class="hint" id="guruPasswordHint">Minimal 6 karakter.</span>
       </div>
       <div class="form-group mb-16">
-        <label class="label" for="guruSubjectId">Mata Pelajaran yang Diampu</label>
+        <label class="label" for="guruSubjectId">Mata Pelajaran yang Diampu <span class="text-danger">*</span></label>
         <select id="guruSubjectId" class="select"></select>
+        <span class="hint">Wajib dipilih. Guru hanya bisa mengelola soal &amp; ujian mapel ini.</span>
       </div>
 
       <div id="guruAddError" class="error-message hidden mb-16"></div>
@@ -206,8 +211,16 @@
         <input type="text" id="guruEditNama" class="input" placeholder="Nama guru" maxlength="100">
       </div>
       <div class="form-group mb-16">
-        <label class="label" for="guruEditSubject">Mata Pelajaran yang Diampu</label>
+        <label class="label" for="guruEditRole">Peran</label>
+        <select id="guruEditRole" class="select">
+          <option value="guru">Guru (hanya mapel yang diampu)</option>
+          <option value="admin">Admin Penuh (semua mapel &amp; fitur)</option>
+        </select>
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="guruEditSubject">Mata Pelajaran yang Diampu <span class="text-danger">*</span></label>
         <select id="guruEditSubject" class="select"></select>
+        <span class="hint">Wajib bila peran Guru.</span>
       </div>
       <div class="form-group mb-16">
         <label class="label" for="guruEditEmail">Email / Username Login</label>

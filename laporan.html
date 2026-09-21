@@ -37,6 +37,10 @@
           <i data-lucide="clipboard-list"></i>
           <span>Laporan Nilai</span>
         </a>
+        <a href="koreksi-esai.html" class="nav-item">
+          <i data-lucide="clipboard-check"></i>
+          <span>Koreksi Esai</span>
+        </a>
         <a href="ranking.html?mode=admin" class="nav-item">
           <i data-lucide="bar-chart"></i>
           <span>Ranking</span>
@@ -80,10 +84,16 @@
             <h1 class="page-title">Laporan Nilai</h1>
             <p class="text-muted hint">Rekap nilai & status pengerjaan per ujian</p>
           </div>
-          <button class="btn btn-secondary" id="exportBtn" disabled>
-            <i data-lucide="download"></i>
-            <span>Export CSV</span>
-          </button>
+          <div class="flex gap-8 flex-wrap">
+            <button class="btn btn-primary" id="koreksiBtn" disabled>
+              <i data-lucide="clipboard-check"></i>
+              <span>Koreksi Esai</span>
+            </button>
+            <button class="btn btn-secondary" id="exportBtn" disabled>
+              <i data-lucide="download"></i>
+              <span>Export CSV</span>
+            </button>
+          </div>
         </div>
 
         <div class="card mb-24">
@@ -283,6 +293,7 @@
       if (!examId) {
         body.classList.add('hidden');
         exportBtn.disabled = true;
+        document.getElementById('koreksiBtn').disabled = true;
         return;
       }
 
@@ -294,6 +305,7 @@
 
       currentExam = allExams.find(function (e) { return e.id === examId; });
       examQuestions = await loadExamDetail(examId);
+      document.getElementById('koreksiBtn').disabled = !examQuestions.some(function (q) { return q.tipe === 'esai'; });
 
       // Siswa yang relevan (sesuai kelas/jurusan ujian, atau semua).
       // Target kelas agregat (mis. "X TJKT") ikut mencakup rombel TJKT 1 & 2.
@@ -516,29 +528,21 @@
       const esaiQuestions = examQuestions.filter(function (q) { return q.tipe === 'esai'; });
       const grades = {};
       esaiQuestions.forEach(function (q) {
-        const v = parseFloat(nilaiEsaiDraft[q.question_id]);
-        if (isFinite(v)) grades[q.question_id] = Math.min(100, Math.max(0, Math.round(v * 10) / 10));
+        const v = normalisasiNilaiEsai(nilaiEsaiDraft[q.question_id]);
+        if (v !== null) grades[q.question_id] = v;
       });
 
       const oldJawaban = row.sub.jawaban || {};
       const pgCount = examQuestions.length - esaiQuestions.length;
       const benarPG = parseInt(row.sub.jumlah_benar || 0, 10) || 0;
-      let esaiPoints = 0;
-      Object.keys(grades).forEach(function (k) { esaiPoints += grades[k] / 100; });
-      const keys = Object.keys(grades);
-      // Nilai berdasarkan POPSOR soal yang sudah lengkap dinilai (tanpa mencemari esai yang belum dinilai dengan 0).
-      // Saat semua esai dinilai, rumus ini = nilai penuh ujian.
-      const totalGraded = pgCount + keys.length;
-      const nilaiFinal = totalGraded > 0
-        ? Math.round(((benarPG + esaiPoints) / totalGraded) * 100 * 100) / 100
-        : 0;
-      const nilaiEsaiAvg = keys.length > 0
-        ? Math.round((keys.reduce(function (acc, k) { return acc + grades[k]; }, 0) / keys.length) * 100) / 100
-        : null;
+      const hasil = hitungNilaiEsai(benarPG, pgCount, grades);
+      const nilaiFinal = hasil.nilaiFinal;
+      const nilaiEsaiAvg = hasil.nilaiEsaiAvg;
+      const gradedCount = Object.keys(grades).length;
 
-      if (keys.length < esaiQuestions.length) {
+      if (gradedCount < esaiQuestions.length) {
         showSnackbar(
-          'Nilai sementara: ' + (esaiQuestions.length - keys.length) + ' soal esai belum dinilai dan belum dihitung.',
+          'Nilai sementara: ' + (esaiQuestions.length - gradedCount) + ' soal esai belum dinilai dan belum dihitung.',
           'warning'
         );
       }
@@ -607,7 +611,7 @@
     let allExams = [];
 
     document.addEventListener('DOMContentLoaded', async function () {
-      const profile = await guard('admin');
+      const profile = await guard(['admin', 'guru']);
       if (!profile) return;
       await buildSidebar(profile);
       await loadReferensi();
@@ -619,6 +623,10 @@
       tampilkanLaporan();
     });
     document.getElementById('exportBtn').addEventListener('click', exportCSV);
+    document.getElementById('koreksiBtn').addEventListener('click', function () {
+      const examId = document.getElementById('examSelect').value;
+      if (examId) window.location.href = 'koreksi-esai.html?exam=' + encodeURIComponent(examId);
+    });
     document.getElementById('esaiSaveBtn').addEventListener('click', simpanPenilaianEsai);
     document.getElementById('detailCloseBtn').addEventListener('click', function () {
       document.getElementById('detailModal').classList.remove('active');
