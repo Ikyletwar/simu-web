@@ -116,6 +116,12 @@
               </div>
             </div>
 
+            <div class="form-group hidden" id="examClassExactGroup">
+              <label class="label" for="examClassExact">Pilih Kelas Sasaran</label>
+              <select id="examClassExact" class="select"></select>
+              <span class="hint">Kelas dibagi per rombel (mis. XI TJKT 1 dan XI TJKT 2). Pilih <b>XI TJKT</b> (tanpa nomor rombel) untuk menargetkan <b>kedua</b> rombel sekaligus. Begitu juga TK.</span>
+            </div>
+
             <div class="form-grid">
               <div class="form-group">
                 <label class="label" for="examMulai">Tanggal & Jam Mulai</label>
@@ -126,6 +132,15 @@
                 <input type="datetime-local" id="examSelesai" class="input" required>
               </div>
             </div>
+
+            <div class="form-group">
+                <label class="label">Acak Urutan Soal</label>
+                <label class="checkbox-option">
+                  <input type="checkbox" id="examAcak" checked>
+                  <span>Acak urutan soal</span>
+                </label>
+                <span class="hint">Kalau dicentang, urutan soal diacak per siswa dan posisi pilihan A-F ikut diacak. Kosongkan supaya urutan mengikuti daftar yang kamu pilih di atas.</span>
+              </div>
 
             <div class="form-group">
               <label class="label">Pilih Soal dari Bank Soal</label>
@@ -162,6 +177,7 @@
                   <th>Judul</th>
                   <th>Mapel</th>
                   <th>Durasi</th>
+                  <th>Jadwal</th>
                   <th>Status</th>
                   <th>Aksi</th>
                 </tr>
@@ -195,6 +211,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <script src="js/katex-render.js"></script>
@@ -202,6 +219,7 @@
     let examDeleteTarget = null;
     let loadedQuestions = [];
     let editExamId = null;
+    let editExamPrevQids = [];
     let kelasList = [];
 
     document.addEventListener('DOMContentLoaded', async function () {
@@ -287,6 +305,8 @@
 
       // Load soal saat mapel dipilih (fungsi top-level di bawah)
       subjectSelect.addEventListener('change', function () { loadQuestionPicker(); });
+      kelasSelect.addEventListener('change', syncExactClass);
+      jurusanSelect.addEventListener('change', syncExactClass);
       document.getElementById('resetBtn').addEventListener('click', function () {
         resetExamForm();
       });
@@ -301,10 +321,25 @@
         const subjectId = subjectSelect.value;
         const durasi = parseInt(document.getElementById('examDurasi').value, 10);
         const majorId = jurusanSelect.value || null;
-        const matchedClass = kelasSelect.value && majorId ? kelasList.find(function (c) {
-          return c.tingkat === kelasSelect.value && c.major_id === majorId;
-        }) : null;
-        const classId = matchedClass ? matchedClass.id : null;
+        const kelasVal = kelasSelect.value;
+        let classId = null;
+        if (kelasVal || majorId) {
+          if (!majorId) {
+            errorEl.textContent = 'Pilih jurusan terlebih dahulu agar kelas bisa dipetakan.';
+            errorEl.classList.remove('hidden');
+            return;
+          }
+          if (kelasVal) {
+            const exactEl = document.getElementById('examClassExact');
+            const exactVal = exactEl.value;
+            if (!exactVal) {
+              errorEl.textContent = 'Pilih kelas sasaran (rombel) untuk kelas & jurusan tersebut.';
+              errorEl.classList.remove('hidden');
+              return;
+            }
+            classId = exactVal;
+          }
+        }
         const mulai = document.getElementById('examMulai').value;
         const selesai = document.getElementById('examSelesai').value;
 
@@ -322,8 +357,10 @@
           errorEl.classList.remove('hidden');
           return;
         }
-        if (checked.length === 0) {
-          errorEl.textContent = 'Pilih minimal 1 soal untuk ujian.';
+        // Ujian baru wajib punya soal; ujian lama tanpa soal boleh disimpan kosong.
+        const examHasQuestions = editExamPrevQids && editExamPrevQids.length > 0;
+        if (checked.length === 0 && (!editExamId || examHasQuestions)) {
+          errorEl.textContent = 'Pilih minimal 1 soal untuk ujian ini.';
           errorEl.classList.remove('hidden');
           return;
         }
@@ -345,6 +382,7 @@
             durasi_menit: durasi,
             tanggal_mulai: new Date(mulai).toISOString(),
             tanggal_selesai: new Date(selesai).toISOString(),
+            acak_soal: document.getElementById('examAcak').checked,
             is_published: true
           };
 
@@ -383,6 +421,17 @@
           await loadExamList();
         } catch (err) {
           console.error('Simpan ujian error:', err.message);
+          if (editExamId && editExamPrevQids.length > 0) {
+            // Rollback: pulihkan soal lama yang sudah terhapus agar ujian tidak kosong.
+            const backRows = editExamPrevQids.map(function (qid, i) {
+              return { exam_id: editExamId, question_id: qid, urutan: i + 1 };
+            });
+            const { error: bkErr } = await supabaseClient
+              .from('exam_questions')
+              .insert(backRows);
+            if (bkErr) console.error('Rollback soal ujian error:', bkErr.message);
+            else showSnackbar('Perubahan batal, soal ujian lama dipulihkan.', 'error');
+          }
           errorEl.textContent = 'Gagal menyimpan ujian: ' + err.message;
           errorEl.classList.remove('hidden');
           showSnackbar('Gagal menyimpan ujian.', 'error');
@@ -402,16 +451,32 @@
       return text.length > len ? text.substring(0, len) + '...' : text;
     }
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text == null ? '' : String(text);
-      return div.innerHTML;
-    }
-
     function toLocalFix(d) {
       const pad = function (n) { return String(n).padStart(2, '0'); };
       return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
         'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    function fmtJadwal(d) {
+      const pad = function (n) { return String(n).padStart(2, '0'); };
+      return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' +
+        pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    function jadwalInfo(ex) {
+      const mulai = new Date(ex.tanggal_mulai);
+      const selesai = new Date(ex.tanggal_selesai);
+      if (isNaN(mulai.getTime()) || isNaN(selesai.getTime())) return '-';
+      return fmtJadwal(mulai) + ' – ' + fmtJadwal(selesai);
+    }
+
+    function jadwalStatusBadge(ex) {
+      const now = Date.now();
+      const mulai = new Date(ex.tanggal_mulai).getTime();
+      const selesai = new Date(ex.tanggal_selesai).getTime();
+      if (now < mulai) return '<span class="badge badge-info">Belum mulai</span>';
+      if (now > selesai) return '<span class="badge badge-neutral">Selesai</span>';
+      return '<span class="badge badge-success">Berlangsung</span>';
     }
 
     async function loadQuestionPicker() {
@@ -537,7 +602,36 @@
       document.getElementById('examMulai').value = toLocalFix(now);
       document.getElementById('examSelesai').value = toLocalFix(end);
       document.getElementById('questionPickerBody').innerHTML = '<p class="hint">Pilih mata pelajaran untuk melihat bank soal.</p>';
+      document.getElementById('examClassExactGroup').classList.add('hidden');
+      document.getElementById('examClassExact').innerHTML = '';
       loadedQuestions = [];
+      editExamPrevQids = [];
+    }
+
+    function syncExactClass() {
+      const group = document.getElementById('examClassExactGroup');
+      const select = document.getElementById('examClassExact');
+      select.innerHTML = '';
+      const kelasVal = document.getElementById('examKelas').value;
+      const majorId = document.getElementById('examJurusan').value || null;
+      if (!kelasVal || !majorId) {
+        group.classList.add('hidden');
+        return;
+      }
+      const matches = kelasList
+        .filter(function (c) { return c.tingkat === kelasVal && c.major_id === majorId; })
+        .sort(function (a, b) { return a.nama.localeCompare(b.nama, 'id'); });
+      if (matches.length === 0) {
+        group.classList.add('hidden');
+        return;
+      }
+      matches.forEach(function (c) {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.nama;
+        select.appendChild(opt);
+      });
+      group.classList.remove('hidden');
     }
 
     async function startEditExam(examId) {
@@ -563,13 +657,23 @@
       document.getElementById('examKelas').value = examClass ? examClass.tingkat : '';
       document.getElementById('examJurusan').value = exam.major_id || '';
       document.getElementById('examDurasi').value = exam.durasi_menit;
+      document.getElementById('examAcak').checked = exam.acak_soal !== false;
       document.getElementById('examMulai').value = toLocalFix(new Date(exam.tanggal_mulai));
       document.getElementById('examSelesai').value = toLocalFix(new Date(exam.tanggal_selesai));
+
+      // Tampilkan kelas sasaran (rombel) yang sesuai, lalu kembalikan pilihan lama.
+      syncExactClass();
+      if (exam.class_id) {
+        const exactEl = document.getElementById('examClassExact');
+        const opt = exactEl.querySelector('option[value="' + exam.class_id + '"]');
+        if (opt) exactEl.value = exam.class_id;
+      }
 
       const { data: eqs } = await supabaseClient
         .from('exam_questions')
         .select('question_id')
         .eq('exam_id', examId);
+      editExamPrevQids = (eqs || []).map(function (e) { return e.question_id; });
 
       await loadQuestionPicker();
 
@@ -619,11 +723,14 @@
         const statusBadge = ex.is_published
           ? '<span class="badge badge-success">Tayang</span>'
           : '<span class="badge badge-warning">Draft</span>';
+        const jadwal = jadwalInfo(ex);
+        const jadwalBadge = jadwalStatusBadge(ex);
         const tr = document.createElement('tr');
         tr.innerHTML =
           '<td class="font-medium">' + escapeHtml(ex.judul) + '</td>' +
           '<td>' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</td>' +
           '<td>' + ex.durasi_menit + ' menit</td>' +
+          '<td><span class="hint">' + jadwal + '</span><br>' + jadwalBadge + '</td>' +
           '<td>' + statusBadge + '</td>' +
           '<td><div class="flex gap-8">' +
           '  <button class="btn btn-secondary btn-sm btn-edit-exam" data-id="' + ex.id + '"><i data-lucide="pencil"></i> Edit</button>' +
@@ -640,6 +747,8 @@
           '</div>' +
           '<p class="font-medium">' + escapeHtml(ex.judul) + '</p>' +
           '<span class="hint">' + ex.durasi_menit + ' menit</span>' +
+          '<span class="hint">' + jadwal + '</span>' +
+          jadwalBadge +
           '<div class="flex gap-8">' +
           '  <button class="btn btn-secondary btn-sm btn-edit-exam" data-id="' + ex.id + '"><i data-lucide="pencil"></i> Edit</button>' +
           '  <button class="btn btn-danger btn-sm btn-delete-exam" data-id="' + ex.id + '"><i data-lucide="trash-2"></i> Hapus</button>' +

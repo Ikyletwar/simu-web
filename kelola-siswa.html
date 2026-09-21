@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/dashboard.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="dashboard-body">
   <div class="layout">
@@ -79,17 +80,39 @@
             <h1 class="page-title">Data Siswa</h1>
             <p class="text-muted hint">Lihat dan atur akun siswa terdaftar</p>
           </div>
-          <button class="btn btn-secondary" id="importSiswaBtn">
-            <i data-lucide="upload"></i>
-            <span>Import Siswa</span>
-          </button>
+          <div class="flex gap-8 flex-wrap">
+            <button class="btn btn-primary" id="addSiswaBtn">
+              <i data-lucide="user-plus"></i>
+              <span>Tambah Siswa</span>
+            </button>
+            <button class="btn btn-secondary" id="importSiswaBtn">
+              <i data-lucide="upload"></i>
+              <span>Import Siswa</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Toolbar pencarian & filter -->
+        <div class="card filter-bar mb-16 flex gap-12 items-center flex-wrap">
+          <div class="search-field">
+            <i data-lucide="search"></i>
+            <input type="search" id="searchSiswa" class="input" placeholder="Cari nama atau NIS...">
+          </div>
+          <select id="filterKelas" class="select filter-select">
+            <option value="">Semua Kelas</option>
+          </select>
+          <select id="filterJurusan" class="select filter-select">
+            <option value="">Semua Jurusan</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" id="resetFilterBtn">Reset</button>
+          <span class="hint" id="filterCount"></span>
         </div>
 
         <div id="loadingBox" class="loading"><span class="spinner"></span></div>
 
         <div id="emptyState" class="card empty-state hidden">
           <i data-lucide="inbox"></i>
-          <p class="hint">Belum ada data siswa.</p>
+          <p class="hint" id="emptyStateText">Belum ada data siswa.</p>
         </div>
 
         <div class="card table-wrapper" id="tableCard" style="display:none;">
@@ -113,21 +136,82 @@
     </main>
   </div>
 
+  <!-- Modal tambah siswa -->
+  <div class="modal-overlay" id="addSiswaModal">
+    <div class="modal">
+      <h3 class="modal-title">Tambah Siswa</h3>
+      <p class="modal-text">Buat satu akun siswa. NIS otomatis menjadi email login (<b>NIS@simu.local</b>).</p>
+
+      <div class="form-group mb-16">
+        <label class="label" for="addNis">NIS</label>
+        <input type="text" id="addNis" class="input" placeholder="Misal: 12345" autocomplete="off">
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="addNama">Nama Lengkap</label>
+        <input type="text" id="addNama" class="input" placeholder="Nama siswa" autocomplete="off">
+      </div>
+      <div class="form-grid mb-16">
+        <div class="form-group">
+          <label class="label" for="addKelas">Kelas (opsional)</label>
+          <select id="addKelas" class="select"><option value="">Pilih kelas</option></select>
+          <span class="hint">Pilih tingkat: X, XI, atau XII.</span>
+        </div>
+        <div class="form-group">
+          <label class="label" for="addJurusan">Jurusan (opsional)</label>
+          <select id="addJurusan" class="select"><option value="">Pilih jurusan</option></select>
+        </div>
+      </div>
+      <div class="form-group mb-16 hidden" id="addRombelGroup">
+        <label class="label" for="addRombel">Rombel (khusus TJKT &amp; TK)</label>
+        <select id="addRombel" class="select">
+          <option value="1">Rombel 1</option>
+          <option value="2">Rombel 2</option>
+        </select>
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="addPassword">Password</label>
+        <div class="password-field">
+          <input type="password" id="addPassword" class="input" placeholder="Minimal 6 karakter">
+          <button type="button" class="input-toggle" id="addPasswordToggle" aria-label="Lihat password" aria-pressed="false">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
+        <span class="hint" id="addPasswordHint">Minimal 6 karakter.</span>
+      </div>
+
+      <div id="addSiswaError" class="error-message hidden mb-16"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="addSiswaCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="addSiswaConfirmBtn">
+          <span id="addSiswaConfirmText">Buat Akun</span>
+          <span id="addSiswaConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal import siswa massal -->
   <div class="modal-overlay" id="importSiswaModal">
     <div class="modal modal-wide">
       <h3 class="modal-title">Import Siswa</h3>
-      <p class="modal-text">Setiap baris: <b>NIS;Nama;Kelas;Jurusan;Password</b> (Kelas & Jurusan boleh kosong). NIS menjadi email login otomatis (<b>NIS@simu.local</b> & NIS sebagai NIS).</p>
+      <p class="modal-text">Setiap baris: <b>NIS;Nama;Kelas;Jurusan;Password</b> (Kelas &amp; Jurusan boleh kosong). Jurusan boleh kode (misal TJKT) atau nama lengkap. <b>Khusus TJKT &amp; TK</b> sertakan rombel di kolom kelas, contoh <b>XI TJKT 1</b>. NIS menjadi email login otomatis (<b>NIS@simu.local</b>).</p>
 
       <div class="form-group mb-16">
         <label class="label" for="siswaArea">Isi Data (format SIMU)</label>
-        <textarea id="siswaArea" class="input import-textarea" placeholder="12345;Budi Santoso;XI TJKT;TJKT;12345&#10;12346;Ani Rahma;XI AKL;AKL;12346"></textarea>
+        <textarea id="siswaArea" class="input import-textarea" placeholder="12345;Budi Santoso;XI TJKT 1;TJKT;12345&#10;12346;Ani Rahma;XI AKL;AKL;12346"></textarea>
       </div>
 
       <input type="file" id="siswaFile" accept=".csv,.txt" class="hidden">
-      <button class="btn btn-secondary btn-sm mb-16" id="siswaFileBtn">
-        <i data-lucide="file-up"></i><span>Muat dari file CSV/TXT</span>
-      </button>
+      <input type="file" id="siswaXlsxFile" accept=".xlsx,.xls" class="hidden">
+      <div class="flex gap-8 flex-wrap mb-16">
+        <button class="btn btn-secondary btn-sm" id="siswaFileBtn">
+          <i data-lucide="file-up"></i><span>Muat dari file CSV/TXT</span>
+        </button>
+        <button class="btn btn-secondary btn-sm" id="siswaXlsxBtn">
+          <i data-lucide="file-spreadsheet"></i><span>Muat dari file Excel (.xlsx)</span>
+        </button>
+      </div>
 
       <div id="siswaPreview" class="card import-guide mb-16"></div>
       <div id="siswaError" class="error-message hidden mb-16"></div>
@@ -146,6 +230,7 @@
     </div>
   </div>
 
+  <!-- Modal atur kelas & jurusan -->
   <div class="modal-overlay" id="editModal">
     <div class="modal">
       <h3 class="modal-title">Atur Kelas & Jurusan</h3>
@@ -171,23 +256,101 @@
     </div>
   </div>
 
+  <!-- Modal reset password siswa -->
+  <div class="modal-overlay" id="resetSiswaModal">
+    <div class="modal">
+      <h3 class="modal-title">Reset Password Siswa</h3>
+      <p class="modal-text">Ganti password akun <b id="resetSiswaName"></b>.</p>
+      <div class="form-group mb-24">
+        <label class="label" for="resetSiswaPassword">Password Baru</label>
+        <div class="password-field">
+          <input type="password" id="resetSiswaPassword" class="input" placeholder="Minimal 6 karakter">
+          <button type="button" class="input-toggle" id="resetSiswaToggle" aria-label="Lihat password" aria-pressed="false">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="resetSiswaCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="resetSiswaConfirmBtn">
+          <span id="resetSiswaConfirmText">Simpan Password</span>
+          <span id="resetSiswaConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal ubah data login siswa -->
+  <div class="modal-overlay" id="loginSiswaModal">
+    <div class="modal">
+      <h3 class="modal-title">Ubah Data Login</h3>
+      <p class="modal-text">Ubah kredensial akun <b id="loginSiswaName"></b>. Kolom yang dikosongkan tidak diubah.</p>
+      <div class="form-group mb-16">
+        <label class="label" for="loginSiswaNis">NIS / Username Login</label>
+        <input type="text" id="loginSiswaNis" class="input" placeholder="Nomor induk siswa (username login)">
+        <span class="hint">Siswa login memakai NIS ini.</span>
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="loginSiswaEmail">Email Akun (opsional)</label>
+        <input type="text" id="loginSiswaEmail" class="input" placeholder="Kosongkan = otomatis NIS@simu.local">
+        <span class="hint">Bila diisi, siswa juga bisa login memakai email ini (persis seperti yang diketik).</span>
+      </div>
+      <div class="form-group mb-24">
+        <label class="label" for="loginSiswaPassword">Password Baru (opsional)</label>
+        <div class="password-field">
+          <input type="password" id="loginSiswaPassword" class="input" placeholder="Minimal 6 karakter">
+          <button type="button" class="input-toggle" id="loginSiswaToggle" aria-label="Lihat password" aria-pressed="false">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="loginSiswaCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="loginSiswaConfirmBtn">
+          <span id="loginSiswaConfirmText">Simpan Login</span>
+          <span id="loginSiswaConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal hapus siswa -->
+  <div class="modal-overlay" id="deleteSiswaModal">
+    <div class="modal">
+      <h3 class="modal-title">Hapus Siswa</h3>
+      <p class="modal-text" id="deleteSiswaText"></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="deleteSiswaCancelBtn">Batal</button>
+        <button class="btn btn-danger btn-sm" id="deleteSiswaConfirmBtn">
+          <span id="deleteSiswaConfirmText">Ya, Hapus</span>
+          <span id="deleteSiswaConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="snackbar" class="snackbar"></div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script>
-    let editUserId = null;
+    let classMap = {};
+    let majorMap = {};
+    let majorKode = {};
+    let allSiswa = [];
     let existingEmails = new Set();
     let parsedSiswaRows = [];
+    let editUserId = null;
+    let resetSiswaId = null;
+    let deleteSiswaId = null;
+    let loginSiswaId = null;
+    let editKelasEl = null;
+    let editJurusanEl = null;
 
-    document.addEventListener('DOMContentLoaded', async function () {
-      const profile = await guard('admin');
-      if (!profile) return;
-
+    function setupSidebar(profile) {
       document.getElementById('userName').textContent = profile.nama || 'Admin';
-
-      // Sidebar
       const hamburgerBtn = document.getElementById('hamburgerBtn');
       const sidebar = document.getElementById('sidebar');
       const overlay = document.getElementById('sidebarOverlay');
@@ -205,44 +368,135 @@
         e.preventDefault();
         logout();
       });
+    }
+
+    function fillSelect(select, items, useValue, labelFn, defaultLabel, defaultUndefined) {
+      select.innerHTML = '';
+      const def = document.createElement('option');
+      def.value = '';
+      def.textContent = defaultLabel;
+      select.appendChild(def);
+      items.forEach(function (item) {
+        const opt = document.createElement('option');
+        opt.value = useValue(item);
+        opt.textContent = labelFn(item);
+        select.appendChild(opt);
+      });
+    }
+
+    function togglePasswordField(inputId, btnId) {
+      const input = document.getElementById(inputId);
+      const btn = document.getElementById(btnId);
+      if (!input || !btn) return;
+      btn.addEventListener('click', function () {
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.setAttribute('aria-pressed', showing ? 'false' : 'true');
+        btn.setAttribute('aria-label', showing ? 'Lihat password' : 'Sembunyikan password');
+        btn.innerHTML = showing ? '<i data-lucide="eye"></i>' : '<i data-lucide="eye-off"></i>';
+        lucide.createIcons();
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', async function () {
+      const profile = await guard('admin');
+      if (!profile) return;
+
+      setupSidebar(profile);
 
       // Load referensi kelas & jurusan
       const [classRes, majorRes] = await Promise.all([
-        supabaseClient.from('classes').select('id, nama').order('nama'),
-        supabaseClient.from('majors').select('id, nama').order('nama')
+        supabaseClient.from('classes').select('id, nama, tingkat, major_id').order('nama'),
+        supabaseClient.from('majors').select('id, nama, kode').order('nama')
       ]);
 
-      const classMap = {};
-      const majorMap = {};
       (classRes.data || []).forEach(function (c) { classMap[c.id] = c.nama; });
-      (majorRes.data || []).forEach(function (m) { majorMap[m.id] = m.nama; });
+      (majorRes.data || []).forEach(function (m) { majorMap[m.id] = m.nama; majorKode[m.id] = m.kode; });
 
-      // Isi select edit modal
-      const editKelas = document.getElementById('editKelas');
-      const editJurusan = document.getElementById('editJurusan');
-      const defKelas = document.createElement('option');
-      defKelas.value = '';
-      defKelas.textContent = 'Tidak ditentukan';
-      editKelas.appendChild(defKelas);
-      (classRes.data || []).forEach(function (c) {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.nama;
-        editKelas.appendChild(opt);
-      });
-      const defJur = document.createElement('option');
-      defJur.value = '';
-      defJur.textContent = 'Tidak ditentukan';
-      editJurusan.appendChild(defJur);
-      (majorRes.data || []).forEach(function (m) {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = m.nama;
-        editJurusan.appendChild(opt);
-      });
+      // Isi select filter & modal
+      fillSelect(document.getElementById('filterKelas'), classRes.data || [], function (c) { return c.id; }, function (c) { return c.nama; }, 'Semua Kelas');
+      fillSelect(document.getElementById('filterJurusan'), majorRes.data || [], function (m) { return m.id; }, function (m) { return m.nama; }, 'Semua Jurusan');
+      fillKelasTingkat(document.getElementById('addKelas'), classRes.data || []);
+      fillSelect(document.getElementById('addJurusan'), majorRes.data || [], function (m) { return m.id; }, function (m) { return m.kode || m.nama; }, 'Pilih jurusan');
+      document.getElementById('addJurusan').addEventListener('change', toggleAddRombel);
+
+      editKelasEl = document.getElementById('editKelas');
+      editJurusanEl = document.getElementById('editJurusan');
+      fillSelect(editKelasEl, classRes.data || [], function (c) { return c.id; }, function (c) { return c.nama; }, 'Tidak ditentukan');
+      fillSelect(editJurusanEl, majorRes.data || [], function (m) { return m.id; }, function (m) { return m.nama; }, 'Tidak ditentukan');
 
       // Load siswa
-      const { data: siswaList } = await supabaseClient
+      await loadSiswa();
+
+      // Filter events
+      document.getElementById('searchSiswa').addEventListener('input', applyFilter);
+      document.getElementById('filterKelas').addEventListener('change', applyFilter);
+      document.getElementById('filterJurusan').addEventListener('change', applyFilter);
+      document.getElementById('resetFilterBtn').addEventListener('click', function () {
+        document.getElementById('searchSiswa').value = '';
+        document.getElementById('filterKelas').value = '';
+        document.getElementById('filterJurusan').value = '';
+        applyFilter();
+      });
+
+      // Tambah siswa
+      togglePasswordField('addPassword', 'addPasswordToggle');
+      document.getElementById('addSiswaBtn').addEventListener('click', openAddSiswaModal);
+      document.getElementById('addSiswaCancelBtn').addEventListener('click', closeAddSiswaModal);
+      document.getElementById('addSiswaModal').addEventListener('click', function (e) {
+        if (e.target === this) closeAddSiswaModal();
+      });
+      document.getElementById('addSiswaConfirmBtn').addEventListener('click', confirmAddSiswa);
+      const addPass = document.getElementById('addPassword');
+      addPass.addEventListener('input', function () {
+        const hint = document.getElementById('addPasswordHint');
+        if (addPass.value.length >= 6) {
+          hint.textContent = 'Password kuat.';
+          hint.classList.add('text-success');
+        } else {
+          hint.textContent = 'Minimal 6 karakter.';
+          hint.classList.remove('text-success');
+        }
+      });
+
+      // Import
+      setupImportSiswa();
+
+      // Edit modal
+      document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+      document.getElementById('editModal').addEventListener('click', function (e) {
+        if (e.target === this) closeEditModal();
+      });
+      document.getElementById('editSaveBtn').addEventListener('click', saveEditSiswa);
+
+      // Reset password
+      togglePasswordField('resetSiswaPassword', 'resetSiswaToggle');
+      document.getElementById('resetSiswaCancelBtn').addEventListener('click', closeResetSiswaModal);
+      document.getElementById('resetSiswaModal').addEventListener('click', function (e) {
+        if (e.target === this) closeResetSiswaModal();
+      });
+      document.getElementById('resetSiswaConfirmBtn').addEventListener('click', confirmResetSiswa);
+
+      // Ubah data login
+      togglePasswordField('loginSiswaPassword', 'loginSiswaToggle');
+      document.getElementById('loginSiswaCancelBtn').addEventListener('click', closeLoginSiswaModal);
+      document.getElementById('loginSiswaModal').addEventListener('click', function (e) {
+        if (e.target === this) closeLoginSiswaModal();
+      });
+      document.getElementById('loginSiswaConfirmBtn').addEventListener('click', confirmLoginSiswa);
+
+      // Hapus
+      document.getElementById('deleteSiswaCancelBtn').addEventListener('click', closeDeleteSiswaModal);
+      document.getElementById('deleteSiswaModal').addEventListener('click', function (e) {
+        if (e.target === this) closeDeleteSiswaModal();
+      });
+      document.getElementById('deleteSiswaConfirmBtn').addEventListener('click', confirmDeleteSiswa);
+
+      lucide.createIcons();
+    });
+
+    async function loadSiswa() {
+      const { data: siswaList, error } = await supabaseClient
         .from('users')
         .select('id, nama, nis, email, class_id, major_id')
         .eq('role', 'siswa')
@@ -250,22 +504,72 @@
 
       document.getElementById('loadingBox').classList.add('hidden');
 
-      (siswaList || []).forEach(function (s) {
+      if (error) {
+        showSnackbar('Gagal memuat data siswa: ' + error.message, 'error');
+        return;
+      }
+
+      allSiswa = siswaList || [];
+      existingEmails = new Set();
+      allSiswa.forEach(function (s) {
         if (s.email) existingEmails.add(s.email.toLowerCase());
       });
 
-      if (!siswaList || siswaList.length === 0) {
-        document.getElementById('emptyState').classList.remove('hidden');
+      applyFilter();
+    }
+
+    function applyFilter() {
+      const q = (document.getElementById('searchSiswa').value || '').trim().toLowerCase();
+      const fKelas = document.getElementById('filterKelas').value;
+      const fJurusan = document.getElementById('filterJurusan').value;
+
+      const filtered = allSiswa.filter(function (s) {
+        if (fKelas && s.class_id !== fKelas) return false;
+        if (fJurusan && s.major_id !== fJurusan) return false;
+        if (q) {
+          const nama = (s.nama || '').toLowerCase();
+          const nis = (s.nis || '').toLowerCase();
+          const email = (s.email || '').toLowerCase();
+          if (nama.indexOf(q) < 0 && nis.indexOf(q) < 0 && email.indexOf(q) < 0) return false;
+        }
+        return true;
+      });
+
+      renderSiswaList(filtered);
+    }
+
+    function renderSiswaList(list) {
+      const tableCard = document.getElementById('tableCard');
+      const emptyState = document.getElementById('emptyState');
+      const emptyText = document.getElementById('emptyStateText');
+      const tbody = document.getElementById('siswaTableBody');
+      const cardList = document.getElementById('siswaCardList');
+      const countEl = document.getElementById('filterCount');
+
+      tbody.innerHTML = '';
+      cardList.innerHTML = '';
+      countEl.textContent = list.length + ' dari ' + allSiswa.length + ' siswa';
+
+      if (list.length === 0) {
+        tableCard.style.display = 'none';
+        emptyState.classList.remove('hidden');
+        emptyText.textContent = allSiswa.length === 0 ? 'Belum ada data siswa.' : 'Tidak ada siswa yang cocok dengan pencarian/filter.';
         lucide.createIcons();
         return;
       }
 
-      document.getElementById('tableCard').style.display = 'block';
-      const tbody = document.getElementById('siswaTableBody');
-      const cardList = document.getElementById('siswaCardList');
+      emptyState.classList.add('hidden');
+      tableCard.style.display = 'block';
 
-      siswaList.forEach(function (s) {
-        // Tabel PC
+      list.forEach(function (s) {
+        const actions =
+          '<div class="flex gap-8 flex-wrap">' +
+          '  <button class="btn btn-secondary btn-sm btn-edit-siswa" data-id="' + s.id + '"><i data-lucide="pencil"></i> Atur</button>' +
+          '  <button class="btn btn-secondary btn-sm btn-login-siswa" data-id="' + s.id + '"><i data-lucide="user-cog"></i> Login</button>' +
+          '  <button class="btn btn-secondary btn-sm btn-reset-siswa" data-id="' + s.id + '"><i data-lucide="key-round"></i> Reset</button>' +
+          '  <button class="btn btn-danger btn-sm btn-delete-siswa" data-id="' + s.id + '"><i data-lucide="trash-2"></i> Hapus</button>' +
+          '</div>';
+
         const tr = document.createElement('tr');
         tr.innerHTML =
           '<td class="font-medium">' + escapeHtml(s.nama || '-') + '</td>' +
@@ -273,60 +577,180 @@
           '<td class="hint">' + escapeHtml(s.email || '-') + '</td>' +
           '<td>' + escapeHtml(classMap[s.class_id] || '-') + '</td>' +
           '<td>' + escapeHtml(majorMap[s.major_id] || '-') + '</td>' +
-          '<td><button class="btn btn-secondary btn-sm btn-edit-siswa" data-id="' + s.id + '" data-nama="' + escapeHtml(s.nama || '') + '" data-class="' + (s.class_id || '') + '" data-major="' + (s.major_id || '') + '"><i data-lucide="pencil"></i> Atur</button></td>';
+          '<td>' + actions + '</td>';
         tbody.appendChild(tr);
 
-        // Card HP
         const card = document.createElement('div');
         card.className = 'card card-mobile soal-card';
         card.innerHTML =
           '<p class="font-medium">' + escapeHtml(s.nama || '-') + '</p>' +
-          '<span class="hint">NIS: ' + escapeHtml(s.nis || '-') + '</span>' +
-          '<div class="flex gap-8">' +
+          '<span class="hint">NIS: ' + escapeHtml(s.nis || '-') + ' • ' + escapeHtml(s.email || '-') + '</span>' +
+          '<div class="flex gap-8 flex-wrap">' +
           '  <span class="badge badge-neutral">' + escapeHtml(classMap[s.class_id] || '-') + '</span>' +
           '  <span class="badge badge-neutral">' + escapeHtml(majorMap[s.major_id] || '-') + '</span>' +
           '</div>' +
-          '<button class="btn btn-secondary btn-sm btn-edit-siswa" data-id="' + s.id + '" data-nama="' + escapeHtml(s.nama || '') + '" data-class="' + (s.class_id || '') + '" data-major="' + (s.major_id || '') + '"><i data-lucide="pencil"></i> Atur</button>';
+          actions;
         cardList.appendChild(card);
       });
 
-      document.querySelectorAll('.btn-edit-siswa').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          editUserId = btn.getAttribute('data-id');
-          document.getElementById('editNama').value = btn.getAttribute('data-nama');
-          editKelas.value = btn.getAttribute('data-class');
-          editJurusan.value = btn.getAttribute('data-major');
-          document.getElementById('editModal').classList.add('active');
-        });
-      });
-
+      bindSiswaActions();
       lucide.createIcons();
-    });
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text == null ? '' : String(text);
-      return div.innerHTML;
     }
 
-    document.getElementById('editCancelBtn').addEventListener('click', function () {
+    function bindSiswaActions() {
+      document.querySelectorAll('.btn-edit-siswa').forEach(function (btn) {
+        btn.addEventListener('click', function () { openEditModal(btn.getAttribute('data-id')); });
+      });
+      document.querySelectorAll('.btn-reset-siswa').forEach(function (btn) {
+        btn.addEventListener('click', function () { openResetSiswaModal(btn.getAttribute('data-id')); });
+      });
+      document.querySelectorAll('.btn-login-siswa').forEach(function (btn) {
+        btn.addEventListener('click', function () { openLoginSiswaModal(btn.getAttribute('data-id')); });
+      });
+      document.querySelectorAll('.btn-delete-siswa').forEach(function (btn) {
+        btn.addEventListener('click', function () { openDeleteSiswaModal(btn.getAttribute('data-id')); });
+      });
+    }
+
+    function findSiswa(id) {
+      return allSiswa.find(function (s) { return s.id === id; });
+    }
+
+    // ============================================================
+    // TAMBAH SISWA (satu akun)
+    // ============================================================
+    function openAddSiswaModal() {
+      document.getElementById('addNis').value = '';
+      document.getElementById('addNama').value = '';
+      document.getElementById('addKelas').value = '';
+      document.getElementById('addJurusan').value = '';
+      document.getElementById('addRombelGroup').classList.add('hidden');
+      document.getElementById('addPassword').value = '';
+      document.getElementById('addPassword').type = 'password';
+      document.getElementById('addPasswordHint').textContent = 'Minimal 6 karakter.';
+      const err = document.getElementById('addSiswaError');
+      err.classList.add('hidden');
+      err.textContent = '';
+      document.getElementById('addSiswaModal').classList.add('active');
+      document.getElementById('addNis').focus();
+    }
+
+    function closeAddSiswaModal() {
+      document.getElementById('addSiswaModal').classList.remove('active');
+    }
+
+    function fillKelasTingkat(select, classData) {
+      const huruf = { '10': 'X', '11': 'XI', '12': 'XII' };
+      const set = {};
+      (classData || []).forEach(function (c) { if (c.tingkat) set[c.tingkat] = true; });
+      select.innerHTML = '<option value="">Pilih kelas</option>';
+      Object.keys(set)
+        .sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); })
+        .forEach(function (t) {
+          const opt = document.createElement('option');
+          opt.value = huruf[t] || t;
+          opt.textContent = huruf[t] || t;
+          select.appendChild(opt);
+        });
+    }
+
+    function toggleAddRombel() {
+      const kode = majorKode[document.getElementById('addJurusan').value] || '';
+      const grp = document.getElementById('addRombelGroup');
+      if (kode === 'TJKT' || kode === 'TK') {
+        grp.classList.remove('hidden');
+      } else {
+        grp.classList.add('hidden');
+      }
+    }
+
+    function buildClassName(kelas, jurusanId) {
+      const kode = majorKode[jurusanId] || '';
+      if (!kelas || !kode) return '';
+      if (kode === 'TJKT' || kode === 'TK') {
+        return kelas + ' ' + kode + ' ' + (document.getElementById('addRombel').value || '1');
+      }
+      return kelas + ' ' + kode;
+    }
+
+    async function confirmAddSiswa() {
+      const nis = (document.getElementById('addNis').value || '').trim();
+      const nama = (document.getElementById('addNama').value || '').trim();
+      const kelas = document.getElementById('addKelas').value;
+      const jurusanId = document.getElementById('addJurusan').value;
+      const password = document.getElementById('addPassword').value;
+      const err = document.getElementById('addSiswaError');
+
+      function fail(msg) {
+        err.textContent = msg;
+        err.classList.remove('hidden');
+      }
+
+      if (!nis || !nama || !password) { fail('NIS, nama, dan password wajib diisi.'); return; }
+      if (password.length < 6) { fail('Password minimal 6 karakter.'); return; }
+      const email = (nis.toLowerCase() + '@simu.local');
+      if (existingEmails.has(email)) { fail('NIS ini sudah terdaftar. Gunakan NIS lain.'); return; }
+
+      const btn = document.getElementById('addSiswaConfirmBtn');
+      const text = document.getElementById('addSiswaConfirmText');
+      const loader = document.getElementById('addSiswaConfirmLoader');
+      btn.disabled = true;
+      text.textContent = 'Membuat...';
+      loader.classList.remove('hidden');
+
+      const { data, error } = await supabaseClient.rpc('create_students', {
+        data: [{
+          nis: nis,
+          nama: nama,
+          class_name: buildClassName(kelas, jurusanId),
+          major_name: majorMap[jurusanId] || '',
+          password: password
+        }]
+      });
+
+      btn.disabled = false;
+      text.textContent = 'Buat Akun';
+      loader.classList.add('hidden');
+
+      if (error) {
+        fail(error.message);
+        return;
+      }
+
+      const row = (data || [])[0];
+      if (row && !row.sukses) {
+        fail(row.pesan || 'Gagal membuat akun.');
+        return;
+      }
+
+      closeAddSiswaModal();
+      showSnackbar('Akun siswa ' + nama + ' berhasil dibuat (login: ' + email + ').', 'success');
+      await loadSiswa();
+    }
+
+    // ============================================================
+    // EDIT KELAS & JURUSAN
+    // ============================================================
+    function openEditModal(id) {
+      const s = findSiswa(id);
+      if (!s) return;
+      editUserId = id;
+      document.getElementById('editNama').value = s.nama || '';
+      editKelasEl.value = s.class_id || '';
+      editJurusanEl.value = s.major_id || '';
+      document.getElementById('editModal').classList.add('active');
+    }
+
+    function closeEditModal() {
       document.getElementById('editModal').classList.remove('active');
       editUserId = null;
-    });
+    }
 
-    document.getElementById('editModal').addEventListener('click', function (e) {
-      if (e.target === this) {
-        this.classList.remove('active');
-        editUserId = null;
-      }
-    });
-
-    document.getElementById('editSaveBtn').addEventListener('click', async function () {
+    async function saveEditSiswa() {
       if (!editUserId) return;
-      const btn = this;
+      const btn = document.getElementById('editSaveBtn');
       const text = document.getElementById('editSaveText');
       const loader = document.getElementById('editSaveLoader');
-
       btn.disabled = true;
       text.textContent = 'Menyimpan...';
       loader.classList.remove('hidden');
@@ -334,8 +758,8 @@
       const { error } = await supabaseClient
         .from('users')
         .update({
-          class_id: document.getElementById('editKelas').value || null,
-          major_id: document.getElementById('editJurusan').value || null
+          class_id: editKelasEl.value || null,
+          major_id: editJurusanEl.value || null
         })
         .eq('id', editUserId);
 
@@ -348,15 +772,256 @@
         return;
       }
 
-      document.getElementById('editModal').classList.remove('active');
-      editUserId = null;
+      closeEditModal();
       showSnackbar('Data siswa berhasil diperbarui.', 'success');
-      setTimeout(function () { location.reload(); }, 600);
-    });
+      await loadSiswa();
+    }
+
+    // ============================================================
+    // RESET PASSWORD SISWA (reuse RPC reset_guru_password)
+    // ============================================================
+    function openResetSiswaModal(id) {
+      const s = findSiswa(id);
+      if (!s) return;
+      resetSiswaId = id;
+      document.getElementById('resetSiswaName').textContent = s.nama || '';
+      document.getElementById('resetSiswaPassword').value = '';
+      document.getElementById('resetSiswaPassword').type = 'password';
+      document.getElementById('resetSiswaModal').classList.add('active');
+      document.getElementById('resetSiswaPassword').focus();
+    }
+
+    function closeResetSiswaModal() {
+      document.getElementById('resetSiswaModal').classList.remove('active');
+      resetSiswaId = null;
+    }
+
+    async function confirmResetSiswa() {
+      if (!resetSiswaId) return;
+      const password = document.getElementById('resetSiswaPassword').value || '';
+      if (password.length < 6) {
+        showSnackbar('Password minimal 6 karakter.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('resetSiswaConfirmBtn');
+      const text = document.getElementById('resetSiswaConfirmText');
+      const loader = document.getElementById('resetSiswaConfirmLoader');
+      btn.disabled = true;
+      text.textContent = 'Menyimpan...';
+      loader.classList.remove('hidden');
+
+      const { error } = await supabaseClient.rpc('reset_guru_password', {
+        p_user_id: resetSiswaId,
+        p_password: password
+      });
+
+      btn.disabled = false;
+      text.textContent = 'Simpan Password';
+      loader.classList.add('hidden');
+
+      if (error) {
+        showSnackbar('Gagal reset password: ' + error.message, 'error');
+        return;
+      }
+
+      closeResetSiswaModal();
+      showSnackbar('Password siswa berhasil direset.', 'success');
+    }
+
+    // ============================================================
+    // UBAH DATA LOGIN SISWA (NIS/username, email, password)
+    // ============================================================
+    function openLoginSiswaModal(id) {
+      const s = findSiswa(id);
+      if (!s) return;
+      loginSiswaId = id;
+      document.getElementById('loginSiswaName').textContent = s.nama || '';
+      document.getElementById('loginSiswaNis').value = '';
+      document.getElementById('loginSiswaNis').placeholder = s.nis || 'Nomor induk siswa';
+      document.getElementById('loginSiswaEmail').value = '';
+      document.getElementById('loginSiswaEmail').placeholder = s.email || 'otomatis NIS@simu.local';
+      document.getElementById('loginSiswaPassword').value = '';
+      document.getElementById('loginSiswaPassword').type = 'password';
+      document.getElementById('loginSiswaModal').classList.add('active');
+      document.getElementById('loginSiswaNis').focus();
+    }
+
+    function closeLoginSiswaModal() {
+      document.getElementById('loginSiswaModal').classList.remove('active');
+      loginSiswaId = null;
+    }
+
+    async function confirmLoginSiswa() {
+      if (!loginSiswaId) return;
+      const nis = document.getElementById('loginSiswaNis').value.trim() || null;
+      const email = document.getElementById('loginSiswaEmail').value.trim() || null;
+      const password = document.getElementById('loginSiswaPassword').value || null;
+
+      if (!nis && !email && !password) {
+        showSnackbar('Tidak ada perubahan. Isi kolom yang ingin diubah.', 'error');
+        return;
+      }
+      if (password !== null && password.length < 6) {
+        showSnackbar('Password minimal 6 karakter.', 'error');
+        return;
+      }
+      if (email !== null && email.indexOf('@') === -1) {
+        showSnackbar('Format email tidak valid.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('loginSiswaConfirmBtn');
+      const text = document.getElementById('loginSiswaConfirmText');
+      const loader = document.getElementById('loginSiswaConfirmLoader');
+      btn.disabled = true;
+      text.textContent = 'Menyimpan...';
+      loader.classList.remove('hidden');
+
+      const { error } = await supabaseClient.rpc('update_siswa_login', {
+        p_user_id: loginSiswaId,
+        p_nis: nis,
+        p_email: email,
+        p_password: password
+      });
+
+      btn.disabled = false;
+      text.textContent = 'Simpan Login';
+      loader.classList.add('hidden');
+
+      if (error) {
+        showSnackbar('Gagal mengubah login: ' + error.message, 'error');
+        return;
+      }
+
+      closeLoginSiswaModal();
+      showSnackbar('Data login siswa berhasil diubah.', 'success');
+      await loadSiswa();
+    }
+
+    // ============================================================
+    // HAPUS SISWA (reuse RPC delete_guru)
+    // ============================================================
+    function openDeleteSiswaModal(id) {
+      const s = findSiswa(id);
+      if (!s) return;
+      deleteSiswaId = id;
+      document.getElementById('deleteSiswaText').textContent =
+        'Hapus akun siswa "' + (s.nama || '') + '"? Akun tidak bisa login lagi. Seluruh data pengerjaan dan nilai ujian siswa ini juga ikut terhapus (permanen).';
+      document.getElementById('deleteSiswaModal').classList.add('active');
+    }
+
+    function closeDeleteSiswaModal() {
+      document.getElementById('deleteSiswaModal').classList.remove('active');
+      deleteSiswaId = null;
+    }
+
+    async function confirmDeleteSiswa() {
+      if (!deleteSiswaId) return;
+      const btn = document.getElementById('deleteSiswaConfirmBtn');
+      const text = document.getElementById('deleteSiswaConfirmText');
+      const loader = document.getElementById('deleteSiswaConfirmLoader');
+      btn.disabled = true;
+      text.textContent = 'Menghapus...';
+      loader.classList.remove('hidden');
+
+      const { error } = await supabaseClient.rpc('delete_guru', { p_user_id: deleteSiswaId });
+
+      btn.disabled = false;
+      text.textContent = 'Ya, Hapus';
+      loader.classList.add('hidden');
+
+      if (error) {
+        showSnackbar('Gagal menghapus siswa: ' + error.message, 'error');
+        return;
+      }
+
+      closeDeleteSiswaModal();
+      showSnackbar('Akun siswa berhasil dihapus.', 'success');
+      await loadSiswa();
+    }
 
     // ============================================================
     // IMPORT SISWA MASSAL
     // ============================================================
+    function setupImportSiswa() {
+      document.getElementById('importSiswaBtn').addEventListener('click', function () {
+        document.getElementById('siswaArea').value = '';
+        renderSiswaPreview();
+        document.getElementById('importSiswaModal').classList.add('active');
+      });
+
+      document.getElementById('siswaCancelBtn').addEventListener('click', function () {
+        document.getElementById('importSiswaModal').classList.remove('active');
+      });
+
+      document.getElementById('importSiswaModal').addEventListener('click', function (e) {
+        if (e.target === this) this.classList.remove('active');
+      });
+
+      document.getElementById('siswaFileBtn').addEventListener('click', function () {
+        document.getElementById('siswaFile').click();
+      });
+
+      document.getElementById('siswaFile').addEventListener('change', function () {
+        const file = this.files && this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+          document.getElementById('siswaArea').value = ev.target.result;
+          renderSiswaPreview();
+        };
+        reader.readAsText(file);
+        this.value = '';
+      });
+
+      document.getElementById('siswaExampleBtn').addEventListener('click', function () {
+        const sample =
+          '12345;Budi Santoso;XI TJKT 1;TJKT;12345\n' +
+          '12346;Ani Rahma;XI AKL;AKL;12346\n' +
+          '12347;Rizky Pratama;X TJKT 2;TJKT;rizky123';
+        const blob = new Blob([sample], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'contoh-format-siswa-simu.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      document.getElementById('siswaImportBtn').addEventListener('click', runImportSiswa);
+
+      document.getElementById('siswaXlsxBtn').addEventListener('click', function () {
+        document.getElementById('siswaXlsxFile').click();
+      });
+
+      document.getElementById('siswaXlsxFile').addEventListener('change', function () {
+        const file = this.files && this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+          const data = new Uint8Array(ev.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          let text = '';
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (row && row.length >= 5) {
+              text += row[0] + ';' + row[1] + ';' + row[2] + ';' + row[3] + ';' + row[4] + '\n';
+            }
+          }
+          document.getElementById('siswaArea').value = text.trim();
+          renderSiswaPreview();
+        };
+        reader.readAsArrayBuffer(file);
+        this.value = '';
+      });
+    }
+
     function parseImportSiswa(text) {
       const lines = (text || '').split(/\r?\n/);
       const rows = [];
@@ -376,6 +1041,29 @@
       return rows;
     }
 
+    function analyzeSiswaRows() {
+      const seen = new Set();
+      const payload = [];
+      let valid = 0;
+      let dup = 0;
+      let invalid = 0;
+      parsedSiswaRows.forEach(function (r) {
+        if (!r.nis || !r.nama || !r.password || r.password.length < 6) { invalid++; return; }
+        const email = r.nis.toLowerCase() + '@simu.local';
+        if (existingEmails.has(email) || seen.has(email)) { dup++; return; }
+        seen.add(email);
+        valid++;
+        payload.push({
+          nis: r.nis,
+          nama: r.nama,
+          class_name: r.class_name,
+          major_name: r.major_name,
+          password: r.password
+        });
+      });
+      return { valid: valid, dup: dup, invalid: invalid, payload: payload };
+    }
+
     function renderSiswaPreview() {
       const text = document.getElementById('siswaArea').value;
       const preview = document.getElementById('siswaPreview');
@@ -393,84 +1081,29 @@
         return;
       }
 
-      let valid = 0;
-      let dup = 0;
-      let invalid = 0;
-      const seen = new Set();
-
-      parsedSiswaRows.forEach(function (r) {
-        if (!r.nis || !r.nama || !r.password) { invalid++; return; }
-        if (r.password.length < 6) { invalid++; return; }
-        const email = r.nis.toLowerCase() + '@simu.local';
-        if (existingEmails.has(email) || seen.has(email)) { dup++; return; }
-        seen.add(email);
-        valid++;
-      });
+      const info = analyzeSiswaRows();
 
       preview.innerHTML =
         '<p><b>' + parsedSiswaRows.length + '</b> baris terbaca.</p>' +
-        '<p class="hint">' + valid + ' siap dibuat, ' + dup + ' sudah terdaftar, ' + invalid + ' tidak lengkap.</p>';
+        '<p class="hint">' + info.valid + ' siap dibuat, ' + info.dup + ' sudah terdaftar, ' + info.invalid + ' tidak lengkap.</p>';
 
-      importBtn.disabled = valid === 0;
+      importBtn.disabled = info.valid === 0;
     }
 
     document.getElementById('siswaArea').addEventListener('input', renderSiswaPreview);
 
-    document.getElementById('importSiswaBtn').addEventListener('click', function () {
-      document.getElementById('siswaArea').value = '';
-      renderSiswaPreview();
-      document.getElementById('importSiswaModal').classList.add('active');
-    });
-
-    document.getElementById('siswaCancelBtn').addEventListener('click', function () {
-      document.getElementById('importSiswaModal').classList.remove('active');
-    });
-
-    document.getElementById('importSiswaModal').addEventListener('click', function (e) {
-      if (e.target === this) this.classList.remove('active');
-    });
-
-    document.getElementById('siswaFileBtn').addEventListener('click', function () {
-      document.getElementById('siswaFile').click();
-    });
-
-    document.getElementById('siswaFile').addEventListener('change', function () {
-      const file = this.files && this.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function (ev) {
-        document.getElementById('siswaArea').value = ev.target.result;
-        renderSiswaPreview();
-      };
-      reader.readAsText(file);
-      this.value = '';
-    });
-
-    document.getElementById('siswaExampleBtn').addEventListener('click', function () {
-      const sample =
-        '12345;Budi Santoso;XI TJKT;TJKT;12345\n' +
-        '12346;Ani Rahma;XI AKL;AKL;\n' +
-        '12347;Rizky Pratama;X TJKT;TJKT;rizky123';
-      const blob = new Blob([sample], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'contoh-format-siswa-simu.txt';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    });
-
-    document.getElementById('siswaImportBtn').addEventListener('click', async function () {
+    async function runImportSiswa() {
       const errEl = document.getElementById('siswaError');
-      const btn = this;
+      const btn = document.getElementById('siswaImportBtn');
       const btnText = document.getElementById('siswaImportText');
       const btnLoader = document.getElementById('siswaImportLoader');
 
-      const payload = parsedSiswaRows.map(function (r) {
-        return { nis: r.nis, nama: r.nama, class_name: r.class_name, major_name: r.major_name, password: r.password };
-      });
+      const payload = analyzeSiswaRows().payload;
+
+      if (payload.length === 0) {
+        showSnackbar('Tidak ada baris valid untuk diimport.', 'warning');
+        return;
+      }
 
       errEl.classList.add('hidden');
       btn.disabled = true;
@@ -505,15 +1138,14 @@
 
       showSnackbar(ok + ' siswa berhasil diimport.', 'success');
 
-      // update existingEmails & segment list baru
       (data || []).forEach(function (r) {
         if (r.sukses) existingEmails.add(r.email.toLowerCase());
       });
       document.getElementById('siswaArea').value = '';
       parsedSiswaRows = [];
       renderSiswaPreview();
-      setTimeout(function () { location.reload(); }, 900);
-    });
+      await loadSiswa();
+    }
   </script>
 </body>
 </html>

@@ -18,6 +18,7 @@ CREATE OR REPLACE FUNCTION public.create_students(data jsonb)
 RETURNS TABLE(email text, sukses boolean, pesan text)
 LANGUAGE plpgsql SECURITY DEFINER
 AS $$
+#variable_conflict use_variable
 DECLARE
   rec record;
   email_i text;
@@ -41,28 +42,32 @@ BEGIN
 
     -- Validasi dasar
     IF COALESCE(rec.nis, '') = '' OR COALESCE(rec.nama, '') = '' OR COALESCE(rec.password, '') = '' THEN
-      RETURN NEXT email_i;
+      email := email_i;
       sukses := false;
       pesan := 'NIS, nama, dan password wajib diisi';
+      RETURN NEXT;
       CONTINUE;
     END IF;
 
     IF length(rec.password) < 6 THEN
-      RETURN NEXT email_i;
+      email := email_i;
       sukses := false;
       pesan := 'Password minimal 6 karakter';
+      RETURN NEXT;
       CONTINUE;
     END IF;
 
-    IF EXISTS (SELECT 1 FROM auth.users WHERE email = email_i) THEN
-      RETURN NEXT email_i;
+    IF EXISTS (SELECT 1 FROM auth.users WHERE auth.users.email = email_i) THEN
+      email := email_i;
       sukses := false;
       pesan := 'NIS sudah terdaftar';
+      RETURN NEXT;
       CONTINUE;
     END IF;
 
     BEGIN
       INSERT INTO auth.users (
+        id,
         instance_id,
         email,
         encrypted_password,
@@ -79,6 +84,7 @@ BEGIN
         email_change
       )
       VALUES (
+        gen_random_uuid(),
         '00000000-0000-0000-0000-000000000000',
         email_i,
         crypt(rec.password, gen_salt('bf')),
@@ -102,16 +108,19 @@ BEGIN
         class_id = CASE WHEN COALESCE(rec.class_name, '') = '' THEN NULL
                         ELSE (SELECT c.id FROM public.classes c WHERE c.nama = rec.class_name LIMIT 1) END,
         major_id = CASE WHEN COALESCE(rec.major_name, '') = '' THEN NULL
-                        ELSE (SELECT m.id FROM public.majors m WHERE m.nama = rec.major_name LIMIT 1) END
+                        ELSE (SELECT m.id FROM public.majors m
+                              WHERE m.nama = rec.major_name OR m.kode = upper(trim(rec.major_name)) LIMIT 1) END
       WHERE u.id = new_id;
 
-      RETURN NEXT email_i;
+      email := email_i;
       sukses := true;
       pesan := 'Berhasil';
+      RETURN NEXT;
     EXCEPTION WHEN others THEN
-      RETURN NEXT email_i;
+      email := email_i;
       sukses := false;
       pesan := SQLERRM;
+      RETURN NEXT;
     END;
   END LOOP;
 

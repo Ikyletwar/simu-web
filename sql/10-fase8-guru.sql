@@ -42,6 +42,7 @@ BEGIN
   END IF;
 
   INSERT INTO auth.users (
+    id,
     instance_id,
     email,
     encrypted_password,
@@ -58,6 +59,7 @@ BEGIN
     email_change
   )
   VALUES (
+    gen_random_uuid(),
     '00000000-0000-0000-0000-000000000000',
     v_email,
     crypt(v_password, gen_salt('bf')),

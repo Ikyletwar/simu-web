@@ -51,6 +51,8 @@
 
         <p class="hint esai-note" id="esaiNote" hidden>Soal esai dinilai manual oleh guru setelah ujian selesai. Nilai di atas baru dari soal pilihan ganda.</p>
 
+        <p class="hint esai-note" id="antiCheatNote" hidden>Catatan sistem: terdeteksi keluar dari halaman ujian saat mengerjakan. Ini tercatat pada laporan guru.</p>
+
         <div class="flex flex-col gap-12 mt-24">
           <button class="btn btn-primary w-full" id="lihatRankingBtn">
             <i data-lucide="bar-chart"></i>
@@ -70,6 +72,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <script src="js/katex-render.js"></script>
@@ -119,6 +122,15 @@
         return e.questions && e.questions.tipe === 'esai';
       });
       document.getElementById('esaiNote').hidden = !hasEsai;
+
+      // Catatan anti curang (kalau tercatat di meta saat submit)
+      const meta = (sub.jawaban || {})._meta || {};
+      if (meta.pindah_tab > 0 || meta.waktu_pergi > 0) {
+        const note = document.getElementById('antiCheatNote');
+        note.hidden = false;
+        note.textContent = 'Catatan sistem: terdeteksi ' + (meta.pindah_tab || 0) +
+          'x keluar dari halaman ujian (total ' + (meta.waktu_pergi || 0) + ' detik). Hal ini tercatat pada laporan guru.';
+      }
 
       const nilai = parseFloat(sub.nilai || 0);
       document.getElementById('nilaiValue').textContent = nilai;

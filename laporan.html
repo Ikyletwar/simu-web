@@ -174,6 +174,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <script src="js/katex-render.js"></script>
@@ -188,18 +189,6 @@
     let examQuestions = [];
     let detailIdx = null;
     let nilaiEsaiDraft = {};
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text == null ? '' : String(text);
-      return div.innerHTML;
-    }
-
-    function formatNilai(value) {
-      if (value == null) return '-';
-      const n = parseFloat(value);
-      return n % 1 === 0 ? n.toFixed(0) : n.toFixed(2);
-    }
 
     async function buildSidebar(profile) {
       document.getElementById('userName').textContent = profile.nama || 'Admin';
@@ -276,6 +265,8 @@
           pilihan_b: q.pilihan_b,
           pilihan_c: q.pilihan_c,
           pilihan_d: q.pilihan_d,
+          pilihan_e: q.pilihan_e,
+          pilihan_f: q.pilihan_f,
           jawaban_benar: q.jawaban_benar
         };
       });
@@ -304,9 +295,10 @@
       currentExam = allExams.find(function (e) { return e.id === examId; });
       examQuestions = await loadExamDetail(examId);
 
-      // Siswa yang relevan (sesuai kelas/jurusan ujian, atau semua)
+      // Siswa yang relevan (sesuai kelas/jurusan ujian, atau semua).
+      // Target kelas agregat (mis. "X TJKT") ikut mencakup rombel TJKT 1 & 2.
       let peserta = allStudents;
-      if (currentExam.class_id) peserta = peserta.filter(function (s) { return s.class_id === currentExam.class_id; });
+      if (currentExam.class_id) peserta = peserta.filter(function (s) { return kelasCocok(currentExam.class_id, s.class_id, classMap); });
       if (currentExam.major_id) peserta = peserta.filter(function (s) { return s.major_id === currentExam.major_id; });
 
       if (peserta.length === 0) {
@@ -397,6 +389,40 @@
       const body = document.getElementById('detailBody');
       body.innerHTML = '';
 
+      // Catatan anti curang (meta disimpan saat submit) — ringkasan + log peristiwa
+      const meta = studentsJawaban._meta || {};
+      const catatan = meta.catatan || [];
+      if (meta.pindah_tab > 0 || meta.waktu_pergi > 0 || catatan.length > 0) {
+        const note = document.createElement('div');
+        note.className = 'jd-anticheat mb-16';
+        const jumlah = meta.pindah_tab || catatan.length || 0;
+        const waktuTambahan = meta.waktu_pergi ? ' (total ' + meta.waktu_pergi + ' detik).' : '.';
+        const sudahDipaksa =
+          meta.alasan === 'pelanggaran anti curang'
+            ? ' <b>Ujian dikumpulkan otomatis karena pelanggaran — nilai dijadikan 0.</b>'
+            : '';
+        note.innerHTML =
+          'Terdeteksi keluar dari halaman ujian <b>' + jumlah + 'x</b>' +
+          waktuTambahan + sudahDipaksa;
+        if (catatan.length > 0) {
+          const ul = document.createElement('ul');
+          ul.className = 'jd-anticheat-list';
+          catatan.forEach(function (c) {
+            const li = document.createElement('li');
+            const label = c.jenis === 'fullscreen' ? 'Keluar mode layar penuh' : 'Pindah tab / keluar halaman';
+            const t = c.waktu ? new Date(c.waktu) : null;
+            const tStr = (t && !isNaN(t.getTime()))
+              ? t.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+              : '-';
+            const dur = (c.durasi_detik || 0) > 0 ? ' &middot; ' + Math.round(c.durasi_detik) + ' detik' : '';
+            li.innerHTML = (label + ' — ' + tStr + dur);
+            ul.appendChild(li);
+          });
+          note.appendChild(ul);
+        }
+        body.appendChild(note);
+      }
+
       if (examQuestions.length === 0) {
         body.innerHTML = '<p class="hint">Tidak ada soal dalam ujian ini.</p>';
       }
@@ -453,7 +479,7 @@
             (typeof formatQuestionText === 'function' ? formatQuestionText(q.pertanyaan) : escapeHtml(q.pertanyaan)) +
             '</p>';
 
-          const opts = ['a', 'b', 'c', 'd'].map(function (k) {
+          const opts = (typeof optionKeys === 'function' ? optionKeys(q) : ['a', 'b', 'c', 'd']).map(function (k) {
             return { key: k, text: q['pilihan_' + k], isUser: userAns === k, isCorrect: q.jawaban_benar === k };
           });
 
@@ -496,17 +522,26 @@
 
       const oldJawaban = row.sub.jawaban || {};
       const pgCount = examQuestions.length - esaiQuestions.length;
-      const total = examQuestions.length;
       const benarPG = parseInt(row.sub.jumlah_benar || 0, 10) || 0;
       let esaiPoints = 0;
       Object.keys(grades).forEach(function (k) { esaiPoints += grades[k] / 100; });
-      const nilaiFinal = total > 0
-        ? Math.round(((benarPG + esaiPoints) / total) * 100 * 100) / 100
-        : 0;
       const keys = Object.keys(grades);
+      // Nilai berdasarkan POPSOR soal yang sudah lengkap dinilai (tanpa mencemari esai yang belum dinilai dengan 0).
+      // Saat semua esai dinilai, rumus ini = nilai penuh ujian.
+      const totalGraded = pgCount + keys.length;
+      const nilaiFinal = totalGraded > 0
+        ? Math.round(((benarPG + esaiPoints) / totalGraded) * 100 * 100) / 100
+        : 0;
       const nilaiEsaiAvg = keys.length > 0
         ? Math.round((keys.reduce(function (acc, k) { return acc + grades[k]; }, 0) / keys.length) * 100) / 100
         : null;
+
+      if (keys.length < esaiQuestions.length) {
+        showSnackbar(
+          'Nilai sementara: ' + (esaiQuestions.length - keys.length) + ' soal esai belum dinilai dan belum dihitung.',
+          'warning'
+        );
+      }
 
       const btn = document.getElementById('esaiSaveBtn');
       const text = document.getElementById('esaiSaveText');

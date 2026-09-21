@@ -1,7 +1,13 @@
 Format: NIS;Nama;Kelas;Jurusan;Password
 (Kelas & Jurusan boleh dikosongkan. Email login = NIS@simu.local)
 
-12345;Budi Santoso;XI TJKT;TJKT;12345
-12346;Ani Rahma;XI AKL;AKL;12346
-12347;Rizky Pratama;X TJKT;TJKT;rizky123
+Catatan:
+- Jurusan boleh diisi KODE (misal TJKT, AKL) atau nama lengkap.
+- Khusus jurusan TJKT & TK sertakan rombel di kolom kelas,
+  misal: XI TJKT 1, XI TJKT 2, X TK 1, XII TK 2.
+- Kelas lain tanpa rombel, misal: XI AKL, X MPLB.
+
+12345;Budi Santoso;XI TJKT 1;TJKT;12345
+12346;Ani Rahma;XI AKL;AKL;siti123
+12347;Rizky Pratama;X TJKT 2;TJKT;rizky123
 12348;Siti Aminah;;;siti123

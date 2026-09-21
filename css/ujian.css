@@ -127,6 +127,101 @@
   flex: 1;
 }
 
+/* ---------- Banner offline ---------- */
+.offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background-color: var(--warning);
+  color: var(--black-900);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.offline-banner.show {
+  display: flex;
+}
+
+.offline-banner svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ---------- Layar mulai ujian ---------- */
+.exam-start {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.exam-start-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.exam-start-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+}
+
+.exam-start-list svg {
+  width: 20px;
+  height: 20px;
+  color: var(--black-300);
+  flex-shrink: 0;
+}
+
+.exam-start-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: var(--black-50);
+  border: 1px solid var(--black-100);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-top: 12px;
+}
+
+.exam-start-rule svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--warning);
+}
+
+.exam-resume-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--black-50);
+  border: 1px solid var(--black-100);
+  border-left: 3px solid var(--info);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.exam-resume-notice svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--info);
+}
+
 /* ---------- Navigasi ---------- */
 .exam-nav {
   display: flex;

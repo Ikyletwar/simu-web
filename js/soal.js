@@ -9,6 +9,8 @@ let lastLoadedSoal = [];
 let deleteAllScope = null;
 let deleteTopicTarget = null;
 let editTopicTarget = null;
+let mapelDeleteTarget = null;
+let mapelEditTarget = null;
 
 // -- Helper: tampilkan snackbar (reuse dari auth.js) --
 if (typeof showSnackbar !== 'function') {
@@ -29,7 +31,27 @@ if (typeof showSnackbar !== 'function') {
   }
 }
 
-// -- Muat pilihan mapel ke dropdown filter --
+// -- Isi dropdown mapel dari daftar yang sudah dimuat --
+// Preserves pilihan yang sedang aktif agar refresh setelah CRUD mapel
+// tidak mereset filter pengguna.
+function fillSubjectSelect(select, items, placeholderText) {
+  if (!select) return;
+  const prev = select.value;
+  select.innerHTML = '';
+  const defOpt = document.createElement('option');
+  defOpt.value = '';
+  defOpt.textContent = placeholderText || 'Pilih Mapel';
+  select.appendChild(defOpt);
+  (items || []).forEach(function (m) {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.nama;
+    select.appendChild(opt);
+  });
+  if (prev) select.value = prev;
+}
+
+// -- Muat pilihan mapel ke dropdown filter, Kelola Topik, dan modal import --
 async function initMapelFilter() {
   const { data, error } = await supabaseClient
     .from('subjects')
@@ -40,24 +62,9 @@ async function initMapelFilter() {
     return;
   }
   mapelList = data || [];
-  const filter = document.getElementById('filterMapel');
-  if (filter) {
-    mapelList.forEach(function (m) {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.nama;
-      filter.appendChild(opt);
-    });
-  }
-  const topicSubject = document.getElementById('topicSubject');
-  if (topicSubject) {
-    mapelList.forEach(function (m) {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.nama;
-      topicSubject.appendChild(opt);
-    });
-  }
+  fillSubjectSelect(document.getElementById('filterMapel'), mapelList, 'Semua Mapel');
+  fillSubjectSelect(document.getElementById('topicSubject'), mapelList, 'Pilih Mapel');
+  fillSubjectSelect(document.getElementById('importSubject'), mapelList, 'Pilih Mata Pelajaran');
 }
 
 function getMapelName(id) {
@@ -374,15 +381,23 @@ async function loadTopicManagement() {
       '<div class="flex items-center gap-8 flex-wrap">' +
       '  <span class="font-medium">' + escapeHtml(t.nama) + '</span>' +
       '  <span class="badge badge-neutral">' + (countMap[t.id] || 0) + ' soal</span>' +
-      '</div>' +
-      '<div class="flex gap-8">' +
-      '  <button class="btn btn-secondary btn-sm btn-edit-topic" data-id="' + t.id + '" data-nama="' + escapeHtml(t.nama) + '">' +
-      '    <i data-lucide="pencil"></i> Edit' +
-      '  </button>' +
-      '  <button class="btn btn-danger btn-sm btn-del-topic" data-id="' + t.id + '" data-nama="' + escapeHtml(t.nama) + '">' +
-      '    <i data-lucide="trash-2"></i> Hapus' +
-      '  </button>' +
       '</div>';
+
+    // Bangun tombol via setAttribute agar nama berisi tanda kutip tidak memecah HTML.
+    const actions = document.createElement('div');
+    actions.className = 'flex gap-8';
+    const makeBtn = function (cls, label, icon, id, nama) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = cls;
+      btn.innerHTML = '<i data-lucide="' + icon + '"></i> ' + label;
+      btn.setAttribute('data-id', id);
+      btn.setAttribute('data-nama', nama);
+      return btn;
+    };
+    actions.appendChild(makeBtn('btn btn-secondary btn-sm btn-edit-topic', 'Edit', 'pencil', t.id, t.nama));
+    actions.appendChild(makeBtn('btn btn-danger btn-sm btn-del-topic', 'Hapus', 'trash-2', t.id, t.nama));
+    row.appendChild(actions);
     body.appendChild(row);
   });
 
@@ -500,6 +515,196 @@ async function confirmEditTopic() {
   await loadSoal();
 }
 
+// ============================================================
+// KELOLA MATA PELAJARAN (kartu di kelola-soal.html)
+// ============================================================
+
+async function loadMapelManagement() {
+  const body = document.getElementById('mapelMgmtBody');
+  if (!body) return;
+  body.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
+
+  const [subRes, soalRes] = await Promise.all([
+    supabaseClient.from('subjects').select('id, nama, kode').order('nama'),
+    supabaseClient.from('questions').select('subject_id')
+  ]);
+
+  if (subRes.error) {
+    console.error('Gagal memuat mapel:', subRes.error.message);
+    body.innerHTML = '<p class="hint">Gagal memuat daftar mapel.</p>';
+    return;
+  }
+
+  const countMap = {};
+  (soalRes.data || []).forEach(function (q) {
+    countMap[q.subject_id] = (countMap[q.subject_id] || 0) + 1;
+  });
+
+  const subjects = subRes.data || [];
+  if (subjects.length === 0) {
+    body.innerHTML = '<p class="hint">Belum ada mata pelajaran. Tambahkan yang pertama di atas.</p>';
+    return;
+  }
+
+  body.innerHTML = '';
+  subjects.forEach(function (s) {
+    const row = document.createElement('div');
+    row.className = 'topic-row';
+
+    const info = document.createElement('div');
+    info.className = 'flex items-center gap-8 flex-wrap';
+    const name = document.createElement('span');
+    name.className = 'font-medium';
+    name.textContent = s.nama;
+    const kodeBadge = document.createElement('span');
+    kodeBadge.className = 'badge badge-neutral';
+    kodeBadge.textContent = s.kode ? 'Kode: ' + s.kode : 'Tanpa kode';
+    const cntBadge = document.createElement('span');
+    cntBadge.className = 'badge badge-neutral';
+    cntBadge.textContent = (countMap[s.id] || 0) + ' soal';
+    info.appendChild(name);
+    info.appendChild(kodeBadge);
+    info.appendChild(cntBadge);
+    row.appendChild(info);
+
+    const actions = document.createElement('div');
+    actions.className = 'flex gap-8';
+    const makeBtn = function (cls, label, icon) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = cls;
+      btn.innerHTML = '<i data-lucide="' + icon + '"></i> ' + label;
+      return btn;
+    };
+    const editBtn = makeBtn('btn btn-secondary btn-sm btn-mapel-edit', 'Edit', 'pencil');
+    const delBtn = makeBtn('btn btn-danger btn-sm btn-mapel-del', 'Hapus', 'trash-2');
+    editBtn.addEventListener('click', function () {
+      openEditMapelModal(s.id, s.nama, s.kode);
+    });
+    delBtn.addEventListener('click', function () {
+      mapelDeleteTarget = { id: s.id, nama: s.nama, kode: s.kode };
+      document.getElementById('mapelDeleteText').textContent =
+        'Hapus mapel "' + s.nama + '" (' + (countMap[s.id] || 0) + ' soal)? Semua topik, soal, dan ujian milik mapel ini ikut terhapus dan tidak bisa dikembalikan.';
+      const modal = document.getElementById('mapelDeleteModal');
+      if (modal) modal.classList.add('active');
+    });
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    row.appendChild(actions);
+    body.appendChild(row);
+  });
+  lucide.createIcons();
+}
+
+async function addMapelHandler() {
+  const namaEl = document.getElementById('newMapelNama');
+  const kodeEl = document.getElementById('newMapelKode');
+  if (!namaEl || !kodeEl) return;
+  const nama = (namaEl.value || '').trim();
+  const kode = (kodeEl.value || '').trim().toUpperCase();
+  if (!nama) { showSnackbar('Isi nama mata pelajaran.', 'error'); return; }
+  if (!kode) { showSnackbar('Isi kode mapel, misal: PW.', 'error'); return; }
+  const { error } = await supabaseClient
+    .from('subjects')
+    .insert({ nama: nama, kode: kode });
+  if (error) {
+    console.error('Tambah mapel error:', error.message);
+    showSnackbar('Gagal tambah mapel: ' + error.message, 'error');
+    return;
+  }
+  namaEl.value = '';
+  kodeEl.value = '';
+  showSnackbar('Mata pelajaran berhasil ditambahkan.', 'success');
+  await refreshAfterMapelChange();
+}
+
+function openEditMapelModal(id, nama, kode) {
+  mapelEditTarget = { id: id, nama: nama, kode: kode };
+  const nameEl = document.getElementById('mapelEditName');
+  const kodeEl = document.getElementById('mapelEditKode');
+  if (!nameEl || !kodeEl) return;
+  nameEl.value = nama;
+  kodeEl.value = kode || '';
+  document.getElementById('mapelEditModal').classList.add('active');
+  nameEl.focus();
+  nameEl.select();
+}
+
+function closeMapelEditModal() {
+  const modal = document.getElementById('mapelEditModal');
+  if (modal) modal.classList.remove('active');
+  mapelEditTarget = null;
+}
+
+async function confirmEditMapel() {
+  if (!mapelEditTarget) return;
+  const nama = (document.getElementById('mapelEditName').value || '').trim();
+  const kode = (document.getElementById('mapelEditKode').value || '').trim().toUpperCase();
+  if (!nama || !kode) {
+    showSnackbar('Nama dan kode tidak boleh kosong.', 'error');
+    return;
+  }
+  const confirmBtn = document.getElementById('mapelEditConfirmBtn');
+  const confirmLoader = document.getElementById('mapelEditConfirmLoader');
+  confirmBtn.disabled = true;
+  confirmLoader.classList.remove('hidden');
+  const { error } = await supabaseClient
+    .from('subjects')
+    .update({ nama: nama, kode: kode })
+    .eq('id', mapelEditTarget.id);
+  confirmBtn.disabled = false;
+  confirmLoader.classList.add('hidden');
+  if (error) {
+    console.error('Edit mapel error:', error.message);
+    showSnackbar('Gagal mengubah mapel: ' + error.message, 'error');
+    return;
+  }
+  closeMapelEditModal();
+  showSnackbar('Mata pelajaran berhasil diubah.', 'success');
+  await refreshAfterMapelChange();
+  await initTopicFilter();
+  await loadSoal();
+}
+
+function closeMapelDeleteModal() {
+  const modal = document.getElementById('mapelDeleteModal');
+  if (modal) modal.classList.remove('active');
+  mapelDeleteTarget = null;
+}
+
+async function confirmDeleteMapel() {
+  if (!mapelDeleteTarget) return;
+  const confirmBtn = document.getElementById('mapelDeleteConfirmBtn');
+  const confirmLoader = document.getElementById('mapelDeleteConfirmLoader');
+  confirmBtn.disabled = true;
+  confirmLoader.classList.remove('hidden');
+  const { error } = await supabaseClient
+    .from('subjects')
+    .delete()
+    .eq('id', mapelDeleteTarget.id);
+  confirmBtn.disabled = false;
+  confirmLoader.classList.add('hidden');
+  if (error) {
+    console.error('Hapus mapel error:', error.message);
+    showSnackbar('Gagal menghapus mapel: ' + error.message, 'error');
+    return;
+  }
+  const modal = document.getElementById('mapelDeleteModal');
+  if (modal) modal.classList.remove('active');
+  mapelDeleteTarget = null;
+  showSnackbar('Mata pelajaran berhasil dihapus.', 'success');
+  await refreshAfterMapelChange();
+  await initTopicFilter();
+  await loadSoal();
+}
+
+// Setelah tambah/ubah/hapus mapel: muat ulang daftar mapel + dropdown terkait.
+async function refreshAfterMapelChange() {
+  await initMapelFilter();
+  await loadMapelManagement();
+  if (typeof loadTopicManagement === 'function') await loadTopicManagement();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   const cancelBtn = document.getElementById('deleteCancelBtn');
   const confirmBtn = document.getElementById('deleteConfirmBtn');
@@ -574,6 +779,52 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  // Kelola mata pelajaran
+  const addMapelBtn = document.getElementById('addMapelBtn');
+  if (addMapelBtn) addMapelBtn.addEventListener('click', addMapelHandler);
+  const newMapelNama = document.getElementById('newMapelNama');
+  const newMapelKode = document.getElementById('newMapelKode');
+  const mapelEnter = function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addMapelHandler();
+    }
+  };
+  if (newMapelNama) newMapelNama.addEventListener('keydown', mapelEnter);
+  if (newMapelKode) newMapelKode.addEventListener('keydown', mapelEnter);
+
+  const mapelEditCancel = document.getElementById('mapelEditCancelBtn');
+  const mapelEditConfirm = document.getElementById('mapelEditConfirmBtn');
+  const mapelEditModal = document.getElementById('mapelEditModal');
+  const mapelEditName = document.getElementById('mapelEditName');
+  const mapelEditKode = document.getElementById('mapelEditKode');
+  if (mapelEditCancel) mapelEditCancel.addEventListener('click', closeMapelEditModal);
+  if (mapelEditConfirm) mapelEditConfirm.addEventListener('click', confirmEditMapel);
+  if (mapelEditModal) {
+    mapelEditModal.addEventListener('click', function (e) {
+      if (e.target === mapelEditModal) closeMapelEditModal();
+    });
+  }
+  const mapelEditEnter = function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirmEditMapel();
+    }
+  };
+  if (mapelEditName) mapelEditName.addEventListener('keydown', mapelEditEnter);
+  if (mapelEditKode) mapelEditKode.addEventListener('keydown', mapelEditEnter);
+
+  const mapelDeleteCancel = document.getElementById('mapelDeleteCancelBtn');
+  const mapelDeleteConfirm = document.getElementById('mapelDeleteConfirmBtn');
+  const mapelDeleteModal = document.getElementById('mapelDeleteModal');
+  if (mapelDeleteCancel) mapelDeleteCancel.addEventListener('click', closeMapelDeleteModal);
+  if (mapelDeleteConfirm) mapelDeleteConfirm.addEventListener('click', confirmDeleteMapel);
+  if (mapelDeleteModal) {
+    mapelDeleteModal.addEventListener('click', function (e) {
+      if (e.target === mapelDeleteModal) closeMapelDeleteModal();
+    });
+  }
 });
 
 // ============================================================
@@ -645,7 +896,7 @@ function stripQuestionNumber(t) {
 function normalizeImportText(text) {
   if (!text) return '';
   const glued =
-    /([^\n\r])(\s*)(?=(?:pertanyaan|soal|no\.?|nomor)\s*\d+\??|[a-dA-D][.)\]]\$|\(([a-dA-D])\)\s|[a-dA-D][.):\]]\s|jawaban\s*[:=]|kunci(?:\s+jawaban)?\s*[:=]|answer\s*[:=]|jenis\s*[:=]|tipe\s*[:=]|type\s*[:=]|topik\s*[:=]|materi\s*[:=]|bab\s*[:=])/gi;
+    /([^\n\r])(\s*)(?=(?:pertanyaan|soal|no\.?|nomor)\s*\d+\??|[a-fA-F][.)\]]\$|\(([a-fA-F])\)\s|[a-fA-F][.):\]]\s|jawaban\s*[:=]|kunci(?:\s+jawaban)?\s*[:=]|answer\s*[:=]|jenis\s*[:=]|tipe\s*[:=]|type\s*[:=]|topik\s*[:=]|materi\s*[:=]|bab\s*[:=])/gi;
   return text.replace(glued, '$1\n');
 }
 
@@ -659,7 +910,7 @@ function findImportStart(lines) {
     if (strongQuestionMarker(t)) return i;
     // Kalau ketemu bagian opsi/jawaban sebelum ada yang mirip soal,
     // artinya baris-baris sebelumnya memang teks soal tanpa penanda -> mulai dari 0.
-    if (/^[a-dA-D][.)\]:-]/.test(t) ||
+    if (/^[a-fA-F][.)\]:-]/.test(t) ||
         /^(?:ja?waban|kunci|answer)\s*[:=]/i.test(t) ||
         /^(?:topik|materi|bab)\s*[:=]/i.test(t)) return 0;
   }
@@ -675,7 +926,7 @@ function parseImportSoal(text) {
   let fenceOpen = false;
 
   const newBlock = function () {
-    return { pertanyaan: '', pilihan_a: '', pilihan_b: '', pilihan_c: '', pilihan_d: '', jawaban_benar: '', topik: '', tipe: 'pg' };
+    return { pertanyaan: '', pilihan_a: '', pilihan_b: '', pilihan_c: '', pilihan_d: '', pilihan_e: '', pilihan_f: '', jawaban_benar: '', topik: '', tipe: 'pg' };
   };
 
   function finalizeBlock() {
@@ -707,7 +958,7 @@ function parseImportSoal(text) {
     // Jawaban: beragam gaya -> "Jawaban: A", "Jawaban = A", "Kunci: A",
     // "Kunci Jawaban: A", "Jawaban benar: A", "Jawaban yang benar: A", "Answer: A", "(A)"
     const ans = line.match(
-      /^(?:(?:kunci\s+)?jawaban(?:\s+(?:yang\s+)?benar)?|kunci(?:\s+jawaban)?|answer)\s*[:=\-]?\s*(?:[\(\[\{]\s*)?([a-dA-D])\s*[\)\]\}]?\.?\s*(?:✅|✓|✔)?\s*$/i
+      /^(?:(?:kunci\s+)?jawaban(?:\s+(?:yang\s+)?benar)?|kunci(?:\s+jawaban)?|answer)\s*[:=\-]?\s*(?:[\(\[\{]\s*)?([a-fA-F])\s*[\)\]\}]?\.?\s*(?:✅|✓|✔)?\s*$/i
     );
 
     // Topik: "Topik: Nama", "Sub Topik:", "Materi:", "Bab:" (wajib ada tanda)
@@ -716,9 +967,9 @@ function parseImportSoal(text) {
     // Jenis soal: "Jenis: Esai", "Tipe: Esai", "Type: Essay" (opsional, default PG)
     const tipeMarker = line.match(/^(?:jenis|tipe|type)\s*[:=\-]\s*(.+)$/i);
 
-    // Opsi A-D: "A. teks", "A) teks", "A] teks", "A: teks", "(A) teks"
+    // Opsi A-F: "A. teks", "A) teks", "A] teks", "A: teks", "(A) teks"
     // (tanpa "-" supaya baris math seperti "a - b = 1" tidak dianggap opsi)
-    const opt = line.match(/^(?:\(([a-dA-D])\)|([a-dA-D])\s*[.)\]:])\s*(.*)$/);
+    const opt = line.match(/^(?:\(([a-fA-F])\)|([a-fA-F])\s*[.)\]:])\s*(.*)$/);
 
     if (topikMarker) {
       if (!cur) cur = newBlock();
@@ -777,8 +1028,11 @@ function parseImportSoal(text) {
 
   const valid = blocks.filter(function (b) {
     if (b.tipe === 'esai') return !!b.pertanyaan;
+    // A-D wajib terisi dan kunci harus menunjuk ke opsi yang tidak kosong
+    // (mis. kunci F saat pilihan_f kosong => blok dianggap tidak valid).
     return b.pertanyaan && b.jawaban_benar &&
-      b.pilihan_a && b.pilihan_b && b.pilihan_c && b.pilihan_d;
+      b.pilihan_a && b.pilihan_b && b.pilihan_c && b.pilihan_d &&
+      !!String(b['pilihan_' + b.jawaban_benar] || '').trim();
   });
   return { valid: valid, skipped: blocks.length - valid.length };
 }
@@ -790,6 +1044,8 @@ function downloadImportExample() {
     'B. 4\n' +
     'C. 5\n' +
     'D. 6\n' +
+    'E. 7\n' +
+    'F. 9\n' +
     'Jawaban: B\n' +
     'Topik: Aritmatika Dasar\n' +
     '\n' +
@@ -826,7 +1082,7 @@ async function exportSoal() {
   const [qRes, tRes] = await Promise.all([
     supabaseClient
       .from('questions')
-      .select('id, pertanyaan, tipe, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar, subject_id, topic_id')
+      .select('id, pertanyaan, tipe, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, pilihan_f, jawaban_benar, subject_id, topic_id')
       .order('created_at'),
     supabaseClient.from('topics').select('id, nama')
   ]);
@@ -850,14 +1106,13 @@ async function exportSoal() {
   const topicMap = {};
   (tRes.data || []).forEach(function (t) { topicMap[t.id] = t.nama; });
 
-  const opts = ['a', 'b', 'c', 'd'];
-  const lines = [];
   data.forEach(function (q, i) {
     lines.push((i + 1) + '. ' + (q.pertanyaan || ''));
     if (q.tipe === 'esai') {
       lines.push('Jenis: Esai');
     } else {
-      opts.forEach(function (k) {
+      // Export hanya opsi yang terisi (A..F, kontigu).
+      optionKeys(q).forEach(function (k) {
         const label = k.toUpperCase() + '.';
         lines.push(label + ' ' + (q['pilihan_' + k] || ''));
       });
@@ -905,16 +1160,8 @@ document.addEventListener('DOMContentLoaded', function () {
     resEl.classList.add('hidden');
   }
 
-  supabaseClient.from('subjects').select('id, nama').order('nama')
-    .then(function ({ data, error }) {
-      if (error) return;
-      (data || []).forEach(function (s) {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = s.nama;
-        subjectSelect.appendChild(opt);
-      });
-    });
+  // Dropdown mata pelajaran di modal import diisi oleh initMapelFilter()
+  // (satu sumber data: mapelList), supaya tidak dobel setelah CRUD mapel.
 
   async function refreshImportTopics() {
     if (!topicSelect) return;
@@ -951,6 +1198,8 @@ document.addEventListener('DOMContentLoaded', function () {
           pilihan_b: r.pilihan_b,
           pilihan_c: r.pilihan_c,
           pilihan_d: r.pilihan_d,
+          pilihan_e: r.pilihan_e,
+          pilihan_f: r.pilihan_f,
           jawaban_benar: r.jawaban_benar
         };
       };
@@ -1013,6 +1262,8 @@ document.addEventListener('DOMContentLoaded', function () {
         pilihan_b: q.pilihan_b,
         pilihan_c: q.pilihan_c,
         pilihan_d: q.pilihan_d,
+        pilihan_e: q.pilihan_e || '',
+        pilihan_f: q.pilihan_f || '',
         jawaban_benar: q.jawaban_benar,
         topik: q.topik || ''
       };

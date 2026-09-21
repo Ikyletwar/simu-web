@@ -121,6 +121,8 @@
         </div>
 
         <div id="ujianList" class="ujian-grid"></div>
+
+        <div id="historySection"></div>
       </div>
     </main>
   </div>
@@ -130,10 +132,18 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script>
+    let dashExams = [];
+    let dashClassMap = null;
+    let dashDoneMap = {};
+    let dashSubjectMap = {};
+    let dashProfile = null;
+
     document.addEventListener('DOMContentLoaded', async function () {
       const profile = await guard('siswa');
       if (!profile) return;
+      dashProfile = profile;
 
       document.getElementById('userName').textContent = profile.nama || 'Siswa';
       document.getElementById('topbarName').textContent = profile.nama || 'Siswa';
@@ -181,45 +191,90 @@
 
       lucide.createIcons();
 
-      // Muat daftar ujian published
-      const loadingBox = document.getElementById('loadingBox');
-      const emptyState = document.getElementById('emptyState');
-      const ujianList = document.getElementById('ujianList');
-      const upcomingBox = document.getElementById('upcomingBox');
-      const upcomingEmpty = document.getElementById('upcomingEmpty');
-      const upcomingList = document.getElementById('upcomingList');
+      // Muat data ujian + daftar render
+      await refreshExamData(true);
+
+      // Peringkat kamu (ringkas dari get_ranking)
+      try {
+        const filterType = profile.class_id ? 'class' : (profile.major_id ? 'major' : 'global');
+        const { data: ranks } = await supabaseClient.rpc('get_ranking', {
+          filter_type: filterType,
+          filter_value: profile.class_id || profile.major_id || null
+        });
+        const me = (ranks || []).find(function (r) { return r.user_id === profile.id; });
+        document.getElementById('statRank').textContent = me
+          ? me.r_number + ' / ' + ranks.length
+          : '-';
+      } catch (e) {
+        console.error('rank gagal:', e.message);
+      }
+
+      // Update hitung mundur "Mulai ..." tiap detik
+      setInterval(updateCountdownLabels, 1000);
+
+      // Refresh otomatis: ujian baru pindah posisi (mendatang -> tersedia)
+      setInterval(function () {
+        refreshExamData(false);
+      }, 20000);
+
+      lucide.createIcons();
+    });
+
+    async function refreshExamData(initial) {
+      // Map id kelas -> nama (untuk menyetarakan rombel TJKT/TK 1 & 2).
+      if (!dashClassMap) {
+        const { data: cls, error: clsErr } = await supabaseClient
+          .from('classes')
+          .select('id, nama');
+        dashClassMap = {};
+        if (!clsErr) (cls || []).forEach(function (c) { dashClassMap[c.id] = c.nama; });
+      }
 
       const { data: exams, error } = await supabaseClient
         .from('exams')
-        .select('id, judul, subject_id, durasi_menit, tanggal_mulai, tanggal_selesai')
+        .select('id, judul, subject_id, durasi_menit, tanggal_mulai, tanggal_selesai, class_id, major_id')
         .eq('is_published', true)
         .order('created_at', { ascending: false });
 
-      loadingBox.classList.add('hidden');
-      upcomingBox.classList.add('hidden');
+      // Sembunyikan spinner dalam keadaan apa pun (sukses maupun gagal).
+      document.getElementById('upcomingBox').classList.add('hidden');
+      document.getElementById('loadingBox').classList.add('hidden');
 
       if (error) {
-        console.error('load exams error:', error.message);
-        showSnackbar('Gagal memuat ujian.', 'error');
+        if (initial) showSnackbar('Gagal memuat ujian.', 'error');
         return;
       }
 
-      // Ambil data mapel
-      const { data: subs } = await supabaseClient.from('subjects').select('id, nama');
-      const subjectMap = {};
-      (subs || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
+      // Hanya ujian yang dialamatkan ke kelas/jurusan siswa (atau untuk semua).
+      dashExams = (exams || []).filter(function (ex) {
+        if (!dashProfile) return true;
+        const globalExam = !ex.class_id && !ex.major_id;
+        const kelasSiswa = dashProfile.class_id && kelasCocok(ex.class_id, dashProfile.class_id, dashClassMap);
+        const jurusanSiswa = !ex.class_id && ex.major_id && dashProfile.major_id && ex.major_id === dashProfile.major_id;
+        return globalExam || kelasSiswa || jurusanSiswa;
+      });
 
-      // Ambil submission yang sudah dikerjakan user
-      const { data: doneSubs } = await supabaseClient
+      if (initial) {
+        const { data: subs } = await supabaseClient.from('subjects').select('id, nama');
+        const map = {};
+        (subs || []).forEach(function (s) { map[s.id] = s.nama; });
+        dashSubjectMap = map;
+      }
+
+      const { data: doneSubs, error: subsErr } = await supabaseClient
         .from('submissions')
         .select('exam_id, nilai')
-        .eq('user_id', profile.id);
-      const doneMap = {};
-      (doneSubs || []).forEach(function (s) { doneMap[s.exam_id] = s.nilai; });
+        .eq('user_id', dashProfile.id);
+      dashDoneMap = {};
+      if (subsErr) {
+        console.error('submissions error:', subsErr.message);
+        if (initial) showSnackbar('Gagal memuat riwayat pengerjaan.', 'error');
+      }
+      (doneSubs || []).forEach(function (s) { dashDoneMap[s.exam_id] = s.nilai; });
 
-      // Statistik ringkas
+      // Statistik: dikerjakan & rata-rata
       const doneKnown = (doneSubs || []).filter(function (s) {
-        return exams.some(function (ex) { return ex.id === s.exam_id; });
+        return dashExams.some(function (ex) { return ex.id === s.exam_id; });
       });
       document.getElementById('statDikerjakan').textContent = doneKnown.length;
       if (doneKnown.length > 0) {
@@ -228,15 +283,29 @@
         document.getElementById('statRata').textContent = (rata % 1 === 0 ? rata.toFixed(0) : rata.toFixed(2));
       }
 
-      // Kategori ujian
+      renderAvailability();
+      renderHistory();
+    }
+
+    function renderAvailability() {
       const now = new Date();
-      const notDone = function (ex) { return doneMap[ex.id] === undefined; };
-      const upcoming = (exams || [])
+      const notDone = function (ex) { return dashDoneMap[ex.id] === undefined; };
+      const upcomingList = document.getElementById('upcomingList');
+      const ujianList = document.getElementById('ujianList');
+
+      document.getElementById('upcomingBox').classList.add('hidden');
+      document.getElementById('loadingBox').classList.add('hidden');
+      upcomingList.innerHTML = '';
+      ujianList.innerHTML = '';
+      document.getElementById('upcomingEmpty').classList.add('hidden');
+      document.getElementById('emptyState').classList.add('hidden');
+
+      const upcoming = dashExams
         .filter(function (ex) { return notDone(ex) && new Date(ex.tanggal_mulai) > now; })
         .sort(function (a, b) { return new Date(a.tanggal_mulai) - new Date(b.tanggal_mulai); })
         .slice(0, 3);
 
-      const list = (exams || []).filter(function (ex) {
+      const list = dashExams.filter(function (ex) {
         if (!notDone(ex)) return false;
         const start = new Date(ex.tanggal_mulai);
         const end = new Date(ex.tanggal_selesai);
@@ -246,7 +315,7 @@
       document.getElementById('statTersedia').textContent = list.length;
 
       if (upcoming.length === 0) {
-        upcomingEmpty.classList.remove('hidden');
+        document.getElementById('upcomingEmpty').classList.remove('hidden');
       }
       upcoming.forEach(function (ex) {
         const card = document.createElement('div');
@@ -254,17 +323,17 @@
         card.innerHTML =
           '<div class="ujian-card-icon"><i data-lucide="calendar-clock"></i></div>' +
           '<h3>' + escapeHtml(ex.judul) + '</h3>' +
-          '<span class="badge badge-neutral">' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</span>' +
+          '<span class="badge badge-neutral">' + escapeHtml(dashSubjectMap[ex.subject_id] || '-') + '</span>' +
           '<div class="flex items-center gap-8 mt-12">' +
           '  <i data-lucide="clock"></i>' +
           '  <span class="hint">' + ex.durasi_menit + ' menit</span>' +
           '</div>' +
-          '<span class="badge badge-primary mt-12">' + countdownLabel(new Date(ex.tanggal_mulai)) + '</span>';
+          '<span class="badge badge-neutral mt-12 countdown-label" data-start="' + ex.tanggal_mulai + '">' + countdownLabel(new Date(ex.tanggal_mulai), 1) + '</span>';
         upcomingList.appendChild(card);
       });
 
       if (list.length === 0) {
-        emptyState.classList.remove('hidden');
+        document.getElementById('emptyState').classList.remove('hidden');
       }
 
       list.forEach(function (ex) {
@@ -273,79 +342,91 @@
         card.innerHTML =
           '<div class="ujian-card-icon"><i data-lucide="file-text"></i></div>' +
           '<h3>' + escapeHtml(ex.judul) + '</h3>' +
-          '<span class="badge badge-neutral">' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</span>' +
+          '<span class="badge badge-neutral">' + escapeHtml(dashSubjectMap[ex.subject_id] || '-') + '</span>' +
           '<div class="flex items-center gap-8 mt-12">' +
           '  <i data-lucide="clock"></i>' +
           '  <span class="hint">' + ex.durasi_menit + ' menit</span>' +
           '</div>' +
+          '<span class="hint">Berakhir: ' + formatJam(ex.tanggal_selesai) + '</span>' +
           '<a href="ujian.html?exam=' + ex.id + '" class="btn btn-primary w-full mt-16">' +
           '  <i data-lucide="play"></i><span>Kerjakan</span>' +
           '</a>';
         ujianList.appendChild(card);
       });
 
-      // Peringkat kamu (ringkas dari get_ranking)
-      (async function () {
-        try {
-          const filterType = profile.class_id ? 'class' : (profile.major_id ? 'major' : 'global');
-          const { data: ranks } = await supabaseClient.rpc('get_ranking', {
-            filter_type: filterType,
-            filter_value: profile.class_id || profile.major_id || null
-          });
-          const me = (ranks || []).find(function (r) { return r.user_id === profile.id; });
-          document.getElementById('statRank').textContent = me
-            ? me.r_number + ' / ' + ranks.length
-            : '-';
-        } catch (e) {
-          console.error('rank gagal:', e.message);
-        }
-      })();
-
-      // Card "sudah dikerjakan" (riwayat nilai terakhir)
-      const doneList = (doneSubs || []).filter(function (s) {
-        return exams.some(function (ex) { return ex.id === s.exam_id; });
-      });
-      if (doneList.length > 0) {
-        const historyTitle = document.createElement('h2');
-        historyTitle.className = 'mb-16 mt-48';
-        historyTitle.textContent = 'Riwayat Nilai';
-        ujianList.appendChild(historyTitle);
-
-        const histWrapper = document.createElement('div');
-        histWrapper.className = 'ujian-grid';
-        doneList.forEach(function (s) {
-          const ex = exams.find(function (e) { return e.id === s.exam_id; });
-          const card = document.createElement('div');
-          card.className = 'card ujian-card';
-          card.innerHTML =
-            '<div class="ujian-card-icon"><i data-lucide="check-circle"></i></div>' +
-            '<h3>' + escapeHtml(ex ? ex.judul : '-') + '</h3>' +
-            '<span class="badge badge-success">Nilai ' + s.nilai + '</span>' +
-            '<a href="hasil.html?exam=' + s.exam_id + '" class="btn btn-secondary w-full mt-16">' +
-            '  <i data-lucide="eye"></i><span>Lihat Hasil</span>' +
-            '</a>';
-          histWrapper.appendChild(card);
-        });
-        ujianList.appendChild(histWrapper);
-      }
-
       lucide.createIcons();
-    });
+    }
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text == null ? '' : String(text);
-      return div.innerHTML;
+    function renderHistory() {
+      const wrap = document.getElementById('historySection');
+      wrap.innerHTML = '';
+      const doneList = Object.keys(dashDoneMap).map(function (sid) {
+        const ex = dashExams.find(function (e) { return e.id === sid; });
+        return ex ? { exam: ex, nilai: dashDoneMap[sid] } : null;
+      }).filter(Boolean);
+
+      if (doneList.length === 0) return;
+
+      const title = document.createElement('h2');
+      title.className = 'mb-16 mt-48';
+      title.textContent = 'Riwayat Nilai';
+      wrap.appendChild(title);
+
+      const histWrapper = document.createElement('div');
+      histWrapper.className = 'ujian-grid';
+      doneList.forEach(function (item) {
+        const ex = item.exam;
+        const card = document.createElement('div');
+        card.className = 'card ujian-card';
+        card.innerHTML =
+          '<div class="ujian-card-icon"><i data-lucide="check-circle"></i></div>' +
+          '<h3>' + escapeHtml(ex.judul || '-') + '</h3>' +
+          '<span class="hint">' + escapeHtml(dashSubjectMap[ex.subject_id] || '') + '</span>' +
+          '<span class="badge badge-success">Nilai ' + escapeHtml(String(item.nilai)) + '</span>' +
+          '<a href="hasil.html?exam=' + ex.id + '" class="btn btn-secondary w-full mt-16">' +
+          '  <i data-lucide="eye"></i><span>Lihat Hasil</span>' +
+          '</a>';
+        histWrapper.appendChild(card);
+      });
+      wrap.appendChild(histWrapper);
+      lucide.createIcons();
+    }
+
+    function updateCountdownLabels() {
+      document.querySelectorAll('.countdown-label').forEach(function (el) {
+        const start = new Date(el.getAttribute('data-start'));
+        const label = countdownLabel(start);
+        if (label === 'Tersedia') {
+          el.textContent = 'Tersedia sekarang';
+          el.classList.remove('badge-neutral');
+          el.classList.add('badge-success');
+        } else {
+          el.textContent = label;
+        }
+      });
+    }
+
+    function formatJam(dateStr) {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '-';
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(d);
+      const p = {};
+      parts.forEach(function (part) { p[part.type] = part.value; });
+      return p.hour + ':' + p.minute + ' WIB, ' + p.day + '/' + p.month + '/' + p.year;
     }
 
     function countdownLabel(start) {
       const diff = start - Date.now();
+      if (diff <= 0) return 'Tersedia';
       const hari = Math.floor(diff / 86400000);
       const jam = Math.floor(diff / 3600000);
-      if (hari >= 1) return 'Mulai ' + hari + ' hari lagi';
-      if (jam >= 1) return 'Mulai ' + jam + ' jam lagi';
-      const menit = Math.max(0, Math.floor(diff / 60000));
-      return 'Mulai ' + menit + ' menit lagi';
+      if (hari >= 1) return 'Mulai ' + hari + ' hari ' + Math.floor((diff % 86400000) / 3600000) + ' jam lagi';
+      if (jam >= 1) return 'Mulai ' + jam + ' jam ' + Math.floor((diff % 3600000) / 60000) + ' menit lagi';
+      return 'Mulai ' + Math.max(0, Math.floor(diff / 60000)) + ' menit ' + Math.max(0, Math.floor((diff % 60000) / 1000)) + ' detik lagi';
     }
   </script>
 </body>

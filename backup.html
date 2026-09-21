@@ -1,0 +1,142 @@
+====== FILE: backup.html ======
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMU - Backup</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/backup.js"></script>
+</head>
+<body class="dashboard-body">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.svg" alt="SIMU" class="sidebar-logo">
+        <h2>SIMU</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard-admin.html" class="nav-item">
+          <i data-lucide="home"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="kelola-siswa.html" class="nav-item">
+          <i data-lucide="users"></i>
+          <span>Kelola Siswa</span>
+        </a>
+        <a href="kelola-guru.html" class="nav-item">
+          <i data-lucide="graduation-cap"></i>
+          <span>Kelola Guru</span>
+        </a>
+        <a href="kelola-soal.html" class="nav-item">
+          <i data-lucide="file-text"></i>
+          <span>Kelola Soal</span>
+        </a>
+        <a href="kelola-ujian.html" class="nav-item">
+          <i data-lucide="clock"></i>
+          <span>Kelola Ujian</span>
+        </a>
+        <a href="laporan.html" class="nav-item">
+          <i data-lucide="clipboard-list"></i>
+          <span>Laporan</span>
+        </a>
+        <a href="ranking.html?mode=admin" class="nav-item">
+          <i data-lucide="bar-chart"></i>
+          <span>Ranking</span>
+        </a>
+        <a href="backup.html" class="nav-item active">
+          <i data-lucide="database"></i>
+          <span>Backup</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="ubah-password.html" class="nav-item">
+          <i data-lucide="key-round"></i>
+          <span>Ubah Password</span>
+        </a>
+        <a href="#" id="logoutBtn" class="nav-item">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-user">
+          <span class="user-label" id="userName">Admin</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="mb-24">
+          <h1 class="page-title">Backup</h1>
+          <p class="text-muted hint">Export dan pulihkan data SIMU dalam format JSON</p>
+        </div>
+
+        <div class="card mb-24">
+          <h2 class="mb-8">Export Data</h2>
+          <p class="text-muted mb-16">
+            Unduh seluruh isi tabel penting SIMU (majors, classes, subjects, users,
+            topics, questions, exams, exam_questions, submissions) ke satu file JSON.
+            Simpan file ini di tempat aman sebagai cadangan.
+          </p>
+          <button class="btn btn-primary" id="exportBtn">
+            <i data-lucide="download"></i>
+            <span>Unduh Backup (.json)</span>
+          </button>
+        </div>
+
+        <div class="card">
+          <h2 class="mb-8">Import / Pulihkan</h2>
+          <p class="text-muted mb-16">
+            Tempel isi file JSON backup di bawah, atau muat dari file. Proses ini
+            bersifat <b>non-destruktif</b> &mdash; baris dengan id yang sama akan
+            di-update, id baru akan ditambahkan. Tidak ada data yang dihapus.
+          </p>
+
+          <div class="form-group mb-16">
+            <label class="label" for="backupArea">Isi Backup (JSON)</label>
+            <textarea id="backupArea" class="input import-textarea" placeholder='{"app":"SIMU","versi":1,"data":{"majors":[],"classes":[],"subjects":[]}}'></textarea>
+          </div>
+
+          <input type="file" id="backupFile" accept=".json" class="hidden">
+          <button class="btn btn-secondary mb-16" id="backupFileBtn">
+            <i data-lucide="file-up"></i>
+            <span>Muat dari file (.json)</span>
+          </button>
+
+          <button class="btn btn-primary mb-16" id="backupImportBtn">
+            <i data-lucide="upload"></i>
+            <span>Import / Pulihkan</span>
+          </button>
+
+          <div id="backupMsg" class="hint mb-16"></div>
+          <pre id="backupLog" class="hint" style="max-height:220px;overflow:auto"></pre>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="snackbar" class="snackbar"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

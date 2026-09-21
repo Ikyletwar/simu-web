@@ -12,8 +12,25 @@ function escapeHtml(text) {
     .replace(/'/g, '&#39;');
 }
 
+function togglePasswordInput(inputId, btnId) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  if (!input || !btn) return;
+  btn.addEventListener('click', function () {
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.setAttribute('aria-pressed', showing ? 'false' : 'true');
+    btn.setAttribute('aria-label', showing ? 'Lihat password' : 'Sembunyikan password');
+    btn.innerHTML = showing ? '<i data-lucide="eye"></i>' : '<i data-lucide="eye-off"></i>';
+    lucide.createIcons();
+  });
+}
+
 let currentProfile = null;
 let guruTarget = null;
+let allGuru = [];
+let guruSubjectName = {};   // id -> nama mapel
+let lastCred = null;        // email & password yang baru dibuat
 
 document.addEventListener('DOMContentLoaded', async function () {
   const profile = await guard('admin');
@@ -51,6 +68,27 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
   const addConfirmBtn = document.getElementById('guruAddConfirmBtn');
   if (addConfirmBtn) addConfirmBtn.addEventListener('click', confirmAddGuru);
+  togglePasswordInput('guruPassword', 'guruPasswordToggle');
+  togglePasswordInput('guruResetPassword', 'guruResetToggle');
+
+  const guruPassword = document.getElementById('guruPassword');
+  if (guruPassword) {
+    guruPassword.addEventListener('input', function () {
+      const hint = document.getElementById('guruPasswordHint');
+      if (guruPassword.value.length >= 6) {
+        hint.textContent = 'Password kuat.';
+        hint.classList.add('text-success');
+      } else {
+        hint.textContent = 'Minimal 6 karakter.';
+        hint.classList.remove('text-success');
+      }
+    });
+  }
+
+  const copyCred = document.getElementById('guruCopyCred');
+  if (copyCred) copyCred.addEventListener('click', copyLastCred);
+  const addAnother = document.getElementById('guruAddAnotherBtn');
+  if (addAnother) addAnother.addEventListener('click', openAddGuruModal);
 
   const resetCancelBtn = document.getElementById('guruResetCancelBtn');
   if (resetCancelBtn) resetCancelBtn.addEventListener('click', closeResetGuruModal);
@@ -72,6 +110,28 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
   }
 
+  // Edit guru
+  togglePasswordInput('guruEditPassword', 'guruEditToggle');
+  const editCancelBtn = document.getElementById('guruEditCancelBtn');
+  if (editCancelBtn) editCancelBtn.addEventListener('click', closeEditGuruModal);
+  const guruEditModal = document.getElementById('guruEditModal');
+  if (guruEditModal) {
+    guruEditModal.addEventListener('click', function (e) {
+      if (e.target === guruEditModal) closeEditGuruModal();
+    });
+  }
+  const editConfirmBtn = document.getElementById('guruEditConfirmBtn');
+  if (editConfirmBtn) editConfirmBtn.addEventListener('click', confirmEditGuru);
+  const guruEditPassword = document.getElementById('guruEditPassword');
+  if (guruEditPassword) {
+    guruEditPassword.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmEditGuru();
+      }
+    });
+  }
+
   const deleteCancelBtn = document.getElementById('guruDeleteCancelBtn');
   if (deleteCancelBtn) deleteCancelBtn.addEventListener('click', closeDeleteGuruModal);
   const guruDeleteModal = document.getElementById('guruDeleteModal');
@@ -83,51 +143,74 @@ document.addEventListener('DOMContentLoaded', async function () {
   const deleteConfirmBtn = document.getElementById('guruDeleteConfirmBtn');
   if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', confirmDeleteGuru);
 
+  document.getElementById('searchGuru').addEventListener('input', applyGuruFilter);
+
   await loadGuru();
 });
 
 async function loadGuru() {
   const loadingBox = document.getElementById('loadingBox');
-  const emptyState = document.getElementById('emptyState');
-  const tableCard = document.getElementById('tableCard');
-  const cardList = document.getElementById('guruCardList');
-
   const [subjRes, guruRes] = await Promise.all([
     supabaseClient.from('subjects').select('id, nama').order('nama'),
     supabaseClient.from('users').select('id, email, nama, subject_id').eq('role', 'admin').order('nama')
   ]);
 
-  const subjectMap = {};
-  (subjRes.data || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
+  guruSubjectName = {};
+  (subjRes.data || []).forEach(function (s) { guruSubjectName[s.id] = s.nama; });
 
   const subjectSelect = document.getElementById('guruSubjectId');
   subjectSelect.innerHTML = '<option value="">Tidak ditentukan</option>';
+  const editSubjectSelect = document.getElementById('guruEditSubject');
+  if (editSubjectSelect) editSubjectSelect.innerHTML = '<option value="">Tidak ditentukan</option>';
   (subjRes.data || []).forEach(function (s) {
     const opt = document.createElement('option');
     opt.value = s.id;
     opt.textContent = s.nama;
     subjectSelect.appendChild(opt);
+    if (editSubjectSelect) editSubjectSelect.appendChild(opt.cloneNode(true));
   });
 
-  const guruData = guruRes.data || [];
+  allGuru = guruRes.data || [];
   loadingBox.classList.add('hidden');
+  applyGuruFilter();
+  lucide.createIcons();
+}
 
-  if (guruData.length === 0) {
-    emptyState.classList.remove('hidden');
-    lucide.createIcons();
-    return;
-  }
+function applyGuruFilter() {
+  const q = (document.getElementById('searchGuru').value || '').trim().toLowerCase();
+  const filtered = allGuru.filter(function (g) {
+    if (!q) return true;
+    return (g.nama || '').toLowerCase().indexOf(q) >= 0 ||
+      (g.email || '').toLowerCase().indexOf(q) >= 0;
+  });
 
-  tableCard.style.display = 'block';
+  document.getElementById('guruCount').textContent = filtered.length + ' dari ' + allGuru.length + ' guru';
+
+  const emptyState = document.getElementById('emptyState');
+  const emptyText = document.getElementById('emptyGuruText');
+  const tableCard = document.getElementById('tableCard');
+  const cardList = document.getElementById('guruCardList');
   const tbody = document.getElementById('guruTableBody');
   tbody.innerHTML = '';
   cardList.innerHTML = '';
 
-  guruData.forEach(function (g) {
+  if (filtered.length === 0) {
+    tableCard.style.display = 'none';
+    emptyState.classList.remove('hidden');
+    emptyText.textContent = allGuru.length === 0 ? 'Belum ada data guru.' : 'Tidak ada guru yang cocok dengan pencarian.';
+    lucide.createIcons();
+    return;
+  }
+
+  emptyState.classList.add('hidden');
+  tableCard.style.display = 'block';
+
+  filtered.forEach(function (g) {
     const isSelf = g.id === currentProfile.id;
-    const subjName = subjectMap[g.subject_id] || 'Tidak ditentukan';
+    const subjName = guruSubjectName[g.subject_id] || 'Tidak ditentukan';
     const badge = isSelf ? ' <span class="badge badge-outline">Akun Anda</span>' : '';
-    const resetBtn = '<button class="btn btn-secondary btn-sm btn-reset-guru" data-id="' + g.id + '" data-nama="' + escapeHtml(g.nama || '') + '"><i data-lucide="key-round"></i> Reset Password</button>';
+    const resetBtn = '<button class="btn btn-secondary btn-sm btn-reset-guru" data-id="' + g.id + '" data-nama="' + escapeHtml(g.nama || '') + '"><i data-lucide="key-round"></i> Reset</button>';
+    const editBtn = '<button class="btn btn-secondary btn-sm btn-edit-guru" data-id="' + g.id + '"><i data-lucide="pencil"></i> Edit</button>';
     const delBtn = '<button class="btn btn-danger btn-sm btn-delete-guru" data-id="' + g.id + '" data-nama="' + escapeHtml(g.nama || '') + '"><i data-lucide="trash-2"></i> Hapus</button>';
 
     const tr = document.createElement('tr');
@@ -135,7 +218,7 @@ async function loadGuru() {
       '<td class="font-medium">' + escapeHtml(g.nama || '-') + badge + '</td>' +
       '<td class="hint">' + escapeHtml(g.email || '-') + '</td>' +
       '<td>' + escapeHtml(subjName) + '</td>' +
-      '<td>' + resetBtn + (isSelf ? '' : ' ' + delBtn) + '</td>';
+      '<td>' + editBtn + ' ' + resetBtn + ' ' + delBtn + '</td>';
     tbody.appendChild(tr);
 
     const card = document.createElement('div');
@@ -144,20 +227,17 @@ async function loadGuru() {
       '<p class="font-medium">' + escapeHtml(g.nama || '-') + badge + '</p>' +
       '<p class="hint">' + escapeHtml(g.email || '-') + '</p>' +
       '<p class="hint">Mapel: ' + escapeHtml(subjName) + '</p>' +
-      '<div class="mt-12">' + resetBtn + (isSelf ? '' : ' ' + delBtn) + '</div>';
+      '<div class="mt-12">' + editBtn + ' ' + resetBtn + ' ' + delBtn + '</div>';
     cardList.appendChild(card);
   });
 
-  tbody.querySelectorAll('.btn-reset-guru').forEach(function (b) {
+  document.querySelectorAll('.btn-reset-guru').forEach(function (b) {
     b.addEventListener('click', function () { openResetGuruModal(b.dataset.id, b.dataset.nama); });
   });
-  tbody.querySelectorAll('.btn-delete-guru').forEach(function (b) {
-    b.addEventListener('click', function () { openDeleteGuruModal(b.dataset.id, b.dataset.nama); });
+  document.querySelectorAll('.btn-edit-guru').forEach(function (b) {
+    b.addEventListener('click', function () { openEditGuruModal(b.dataset.id); });
   });
-  cardList.querySelectorAll('.btn-reset-guru').forEach(function (b) {
-    b.addEventListener('click', function () { openResetGuruModal(b.dataset.id, b.dataset.nama); });
-  });
-  cardList.querySelectorAll('.btn-delete-guru').forEach(function (b) {
+  document.querySelectorAll('.btn-delete-guru').forEach(function (b) {
     b.addEventListener('click', function () { openDeleteGuruModal(b.dataset.id, b.dataset.nama); });
   });
 
@@ -169,9 +249,16 @@ function openAddGuruModal() {
   document.getElementById('guruNama').value = '';
   document.getElementById('guruEmail').value = '';
   document.getElementById('guruPassword').value = '';
+  document.getElementById('guruPassword').type = 'password';
+  document.getElementById('guruPasswordToggle').innerHTML = '<i data-lucide="eye"></i>';
+  const hint = document.getElementById('guruPasswordHint');
+  hint.textContent = 'Minimal 6 karakter.';
+  hint.classList.remove('text-success');
+  document.getElementById('guruCreated').classList.add('hidden');
   const errEl = document.getElementById('guruAddError');
   errEl.classList.add('hidden');
   errEl.textContent = '';
+  document.getElementById('guruSubjectId').value = '';
   document.getElementById('guruAddModal').classList.add('active');
   document.getElementById('guruNama').focus();
 }
@@ -180,20 +267,31 @@ function closeAddGuruModal() {
   document.getElementById('guruAddModal').classList.remove('active');
 }
 
+function resetAddGuruUi() {
+  document.getElementById('guruCreated').classList.add('hidden');
+  document.getElementById('guruNama').value = '';
+  document.getElementById('guruEmail').value = '';
+  document.getElementById('guruPassword').value = '';
+  document.getElementById('guruPassword').type = 'password';
+  document.getElementById('guruPasswordToggle').innerHTML = '<i data-lucide="eye"></i>';
+  const hint = document.getElementById('guruPasswordHint');
+  hint.textContent = 'Minimal 6 karakter.';
+  hint.classList.remove('text-success');
+  const errEl = document.getElementById('guruAddError');
+  errEl.classList.add('hidden');
+  document.getElementById('guruSubjectId').value = '';
+  document.getElementById('guruNama').focus();
+}
+
 async function confirmAddGuru() {
   const nama = (document.getElementById('guruNama').value || '').trim();
-  const email = (document.getElementById('guruEmail').value || '').trim().toLowerCase();
+  const loginIn = (document.getElementById('guruEmail').value || '').trim().toLowerCase();
   const password = document.getElementById('guruPassword').value || '';
   const subject_id = document.getElementById('guruSubjectId').value || null;
   const errEl = document.getElementById('guruAddError');
 
-  if (!nama || !email || !password) {
-    errEl.textContent = 'Nama, email, dan password wajib diisi.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  if (email.indexOf('@') < 0) {
-    errEl.textContent = 'Format email tidak valid.';
+  if (!nama || !loginIn || !password) {
+    errEl.textContent = 'Nama, email/username, dan password wajib diisi.';
     errEl.classList.remove('hidden');
     return;
   }
@@ -202,6 +300,9 @@ async function confirmAddGuru() {
     errEl.classList.remove('hidden');
     return;
   }
+
+  // Username (tanpa @) otomatis jadi <username>@simu.local (mengikuti RPC create_guru).
+  const email = loginIn.indexOf('@') < 0 ? loginIn + '@simu.local' : loginIn;
 
   const confirmBtn = document.getElementById('guruAddConfirmBtn');
   const loadEl = document.getElementById('guruAddConfirmLoader');
@@ -221,9 +322,44 @@ async function confirmAddGuru() {
     return;
   }
 
-  closeAddGuruModal();
+  // Simpan kredensial & tampilkan panel agar bisa disalin
+  lastCred = { nama: nama, email: email, password: password };
+  document.getElementById('guruCredText').textContent =
+    'Nama     : ' + nama + '\nEmail    : ' + email + '\nPassword : ' + password;
+  document.getElementById('guruCreated').classList.remove('hidden');
+  document.getElementById('guruAddError').classList.add('hidden');
+  document.getElementById('guruAddError').textContent = '';
   showSnackbar('Akun guru ' + nama + ' berhasil dibuat.', 'success');
   await loadGuru();
+}
+
+function copyLastCred() {
+  if (!lastCred) return;
+  const text = 'Nama: ' + lastCred.nama + '\nEmail: ' + lastCred.email + '\nPassword: ' + lastCred.password;
+  const ok = copyTextToClipboard(text);
+  showSnackbar(ok ? 'Kredensial disalin ke clipboard.' : 'Gagal menyalin.', ok ? 'success' : 'error');
+}
+
+function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) {
+    return false;
+  }
 }
 
 // -- Reset password --
@@ -231,6 +367,8 @@ function openResetGuruModal(id, nama) {
   guruTarget = id;
   document.getElementById('guruResetName').textContent = nama || '';
   document.getElementById('guruResetPassword').value = '';
+  document.getElementById('guruResetPassword').type = 'password';
+  document.getElementById('guruResetToggle').innerHTML = '<i data-lucide="eye"></i>';
   document.getElementById('guruResetModal').classList.add('active');
   document.getElementById('guruResetPassword').focus();
 }
@@ -270,11 +408,106 @@ async function confirmResetGuru() {
   showSnackbar('Password berhasil direset.', 'success');
 }
 
+// -- Edit guru (nama, mapel, email/username, password) --
+function openEditGuruModal(id) {
+  const g = allGuru.find(function (x) { return x.id === id; });
+  if (!g) return;
+  guruTarget = id;
+  document.getElementById('guruEditName').textContent = g.nama || '';
+  document.getElementById('guruEditNama').value = g.nama || '';
+  document.getElementById('guruEditSubject').value = g.subject_id || '';
+  document.getElementById('guruEditEmail').value = '';
+  document.getElementById('guruEditEmail').placeholder = g.email || 'email atau username';
+  document.getElementById('guruEditPassword').value = '';
+  document.getElementById('guruEditPassword').type = 'password';
+  document.getElementById('guruEditToggle').innerHTML = '<i data-lucide="eye"></i>';
+  document.getElementById('guruEditModal').classList.add('active');
+  document.getElementById('guruEditNama').focus();
+}
+
+function closeEditGuruModal() {
+  document.getElementById('guruEditModal').classList.remove('active');
+  guruTarget = null;
+}
+
+async function confirmEditGuru() {
+  if (!guruTarget) return;
+  const g = allGuru.find(function (x) { return x.id === guruTarget; });
+  if (!g) return;
+
+  const nama = (document.getElementById('guruEditNama').value || '').trim();
+  const subjectVal = document.getElementById('guruEditSubject').value || '';
+  const email = (document.getElementById('guruEditEmail').value || '').trim().toLowerCase();
+  const password = document.getElementById('guruEditPassword').value || '';
+
+  if (!nama) {
+    showSnackbar('Nama lengkap wajib diisi.', 'error');
+    return;
+  }
+  if (password && password.length < 6) {
+    showSnackbar('Password minimal 6 karakter.', 'error');
+    return;
+  }
+
+  const profilBerubah = (nama !== (g.nama || '')) || (subjectVal !== (g.subject_id || ''));
+  const loginBerubah = email !== '' || password !== '';
+
+  if (!profilBerubah && !loginBerubah) {
+    showSnackbar('Tidak ada perubahan.', 'error');
+    return;
+  }
+
+  const confirmBtn = document.getElementById('guruEditConfirmBtn');
+  const loadEl = document.getElementById('guruEditConfirmLoader');
+  confirmBtn.disabled = true;
+  loadEl.classList.remove('hidden');
+
+  // 1) Nama & mapel
+  if (profilBerubah) {
+    const { error } = await supabaseClient.rpc('update_guru_profil', {
+      p_user_id: guruTarget,
+      p_nama: nama,
+      p_subject_id: subjectVal || null,
+      p_clear_subject: subjectVal === ''
+    });
+    if (error) {
+      confirmBtn.disabled = false;
+      loadEl.classList.add('hidden');
+      showSnackbar('Gagal menyimpan profil: ' + error.message, 'error');
+      return;
+    }
+  }
+
+  // 2) Email/username & password
+  if (loginBerubah) {
+    const { error } = await supabaseClient.rpc('update_guru_login', {
+      p_user_id: guruTarget,
+      p_email: email || null,
+      p_password: password || null
+    });
+    if (error) {
+      confirmBtn.disabled = false;
+      loadEl.classList.add('hidden');
+      showSnackbar('Gagal menyimpan login: ' + error.message, 'error');
+      await loadGuru();
+      return;
+    }
+  }
+
+  confirmBtn.disabled = false;
+  loadEl.classList.add('hidden');
+  closeEditGuruModal();
+  showSnackbar('Data guru berhasil diperbarui.', 'success');
+  await loadGuru();
+}
+
 // -- Hapus guru --
 function openDeleteGuruModal(id, nama) {
   guruTarget = id;
-  document.getElementById('guruDeleteText').textContent =
-    'Hapus akun guru "' + (nama || '') + '"? Akun tidak bisa login lagi. Soal dan ujian yang sudah dibuat tidak ikut terhapus.';
+  const isSelf = currentProfile && id === currentProfile.id;
+  document.getElementById('guruDeleteText').innerHTML = isSelf
+    ? 'PERINGATAN: ini <b>akun Anda sendiri</b> ("' + escapeHtml(nama || '') + '"). Setelah dihapus Anda langsung keluar dan tidak bisa login lagi dengan akun ini. Soal & ujian yang sudah dibuat tidak ikut terhapus.'
+    : 'Hapus akun guru "' + escapeHtml(nama || '') + '"? Akun tidak bisa login lagi. Soal dan ujian yang sudah dibuat tidak ikut terhapus.';
   document.getElementById('guruDeleteModal').classList.add('active');
 }
 
@@ -286,12 +519,14 @@ function closeDeleteGuruModal() {
 async function confirmDeleteGuru() {
   if (!guruTarget) return;
 
+  const target = guruTarget;
+  const isSelf = currentProfile && target === currentProfile.id;
   const confirmBtn = document.getElementById('guruDeleteConfirmBtn');
   const loadEl = document.getElementById('guruDeleteConfirmLoader');
   confirmBtn.disabled = true;
   loadEl.classList.remove('hidden');
 
-  const { error } = await supabaseClient.rpc('delete_guru', { p_user_id: guruTarget });
+  const { error } = await supabaseClient.rpc('delete_guru', { p_user_id: target });
 
   confirmBtn.disabled = false;
   loadEl.classList.add('hidden');
@@ -303,5 +538,13 @@ async function confirmDeleteGuru() {
 
   closeDeleteGuruModal();
   showSnackbar('Akun guru berhasil dihapus.', 'success');
+
+  // Kalau menghapus akun sendiri, sesi tidak valid lagi -> kembali ke login.
+  if (isSelf) {
+    try { await supabaseClient.auth.signOut(); } catch (e) {}
+    setTimeout(function () { window.location.href = 'admin.html'; }, 800);
+    return;
+  }
+
   await loadGuru();
 }

@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="dashboard-body">
   <div class="layout">
@@ -115,6 +116,21 @@
 
         <div class="card mb-24">
           <div class="flex justify-between items-center mb-16 flex-wrap gap-16">
+            <h2 class="mb-0">Kelola Mata Pelajaran</h2>
+            <span class="hint">Tambah, ubah, atau hapus mapel yang dipakai di bank soal</span>
+          </div>
+          <div class="flex items-center gap-12 mb-16 flex-wrap">
+            <input type="text" id="newMapelNama" class="input input-grow" placeholder="Nama mapel baru, misal: Pemrograman Web" maxlength="100">
+            <input type="text" id="newMapelKode" class="input mapel-kode-input" placeholder="Kode, misal: PW" maxlength="10">
+            <button type="button" class="btn btn-secondary btn-sm btn-nowrap" id="addMapelBtn">+ Tambah Mapel</button>
+          </div>
+          <div id="mapelMgmtBody">
+            <p class="hint">Daftar mata pelajaran.</p>
+          </div>
+        </div>
+
+        <div class="card mb-24">
+          <div class="flex justify-between items-center mb-16 flex-wrap gap-16">
             <h2 class="mb-0">Kelola Topik</h2>
             <span class="hint">Kelompokkan soal per topik dalam mapel</span>
           </div>
@@ -179,6 +195,43 @@
     </div>
   </div>
 
+  <!-- Modal hapus mapel -->
+  <div class="modal-overlay" id="mapelDeleteModal">
+    <div class="modal">
+      <h3 class="modal-title">Hapus Mata Pelajaran</h3>
+      <p class="modal-text" id="mapelDeleteText"></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="mapelDeleteCancelBtn">Batal</button>
+        <button class="btn btn-danger btn-sm" id="mapelDeleteConfirmBtn">
+          <span id="mapelDeleteConfirmText">Ya, Hapus</span>
+          <span id="mapelDeleteConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal edit mapel -->
+  <div class="modal-overlay" id="mapelEditModal">
+    <div class="modal">
+      <h3 class="modal-title">Edit Mata Pelajaran</h3>
+      <div class="form-group mb-16">
+        <label class="label" for="mapelEditName">Nama Mapel</label>
+        <input type="text" id="mapelEditName" class="input" placeholder="Nama mapel" maxlength="100">
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="mapelEditKode">Kode Mapel</label>
+        <input type="text" id="mapelEditKode" class="input" placeholder="Kode, misal: PW" maxlength="10">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="mapelEditCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="mapelEditConfirmBtn">
+          <span id="mapelEditConfirmText">Simpan</span>
+          <span id="mapelEditConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal hapus topik -->
   <div class="modal-overlay" id="topicDeleteModal">
     <div class="modal">
@@ -218,7 +271,7 @@
   <div class="modal-overlay" id="importModal">
     <div class="modal modal-wide">
       <h3 class="modal-title">Import Soal</h3>
-      <p class="modal-text">Tempel soal sesuai format di bawah (soal dipisah baris kosong). <b>Format bebas juga didukung</b>: rapat tanpa enter, nomor "Pertanyaan 1?"/"No.3"/"1.", opsi "A."/"A)"/"(A)", jawaban "Jawaban: A"/"Jawaban = A"/"Kunci: A"/"Answer: A". Kalimat pembuka seperti "Berikut adalah..." otomatis diabaikan. Untuk <b>soal esai</b> tambahkan baris <b>"Jenis: Esai"</b> (tanpa pilihan A-D). Blok kode pakai pembatas ``` di tiap sisinya.</p>
+      <p class="modal-text">Tempel soal sesuai format di bawah (soal dipisah baris kosong). <b>Format bebas juga didukung</b>: rapat tanpa enter, nomor "Pertanyaan 1?"/"No.3"/"1.", opsi "A."/"A)"/"(A)", jawaban "Jawaban: A"/"Jawaban = A"/"Kunci: A"/"Answer: A". Kalimat pembuka seperti "Berikut adalah..." otomatis diabaikan. <b>Opsi maksimal 6 (A-F)</b>; A-D wajib, E/F opsional dan harus kontigu (jangan isi F kalau E kosong). Untuk <b>soal esai</b> tambahkan baris <b>"Jenis: Esai"</b> (tanpa pilihan A-D). Blok kode pakai pembatas ``` di tiap sisinya.</p>
 
       <div class="form-group mb-16">
         <label class="label" for="importSubject">Mata Pelajaran</label>
@@ -238,6 +291,13 @@
       <div class="form-group mb-16">
         <label class="label" for="importArea">Isi Soal (format SIMU)</label>
         <textarea id="importArea" class="input import-textarea" placeholder="Pertanyaan pertama?&#10;A. Pilihan A&#10;B. Pilihan B&#10;C. Pilihan C&#10;D. Pilihan D&#10;Jawaban: A&#10;&#10;Pertanyaan kedua?&#10;..."></textarea>
+
+      <div class="flex items-center gap-8 mb-16">
+        <input type="file" id="soalXlsxFile" accept=".xlsx,.xls" class="hidden">
+        <button class="btn btn-secondary btn-sm" id="soalXlsxBtn" type="button">
+          <i data-lucide="file-spreadsheet"></i><span>Muat dari file Excel (.xlsx)</span>
+        </button>
+      </div>
       </div>
 
       <div class="card import-guide mb-16">
@@ -247,6 +307,8 @@ A. Pilihan A
 B. Pilihan B
 C. Pilihan C
 D. Pilihan D
+E. Pilihan E (opsional)
+F. Pilihan F (opsional)
 Jawaban: B
 Topik: Nama Topik (opsional)
 
@@ -298,6 +360,7 @@ Jenis: Esai</pre>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <script src="js/katex-render.js"></script>
@@ -341,8 +404,45 @@ Jenis: Esai</pre>
       await initTopicFilter();
       await loadSoal();
       await loadTopicManagement();
+      await loadMapelManagement();
       lucide.createIcons();
     });
   </script>
+
+  <script>
+    (function () {
+      document.getElementById('soalXlsxBtn').addEventListener('click', function () {
+        document.getElementById('soalXlsxFile').click();
+      });
+      document.getElementById('soalXlsxFile').addEventListener('change', function () {
+        var f = this.files && this.files[0];
+        if (!f) return;
+        var rd = new FileReader();
+        rd.onload = function (ev) {
+          var wb, ws, rows, text = '', i, j, r;
+          try {
+            wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+            ws = wb.Sheets[wb.SheetNames[0]];
+            rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+          } catch (err) { alert('Gagal membaca file: ' + err.message); return; }
+          for (i = 1; i < rows.length; i++) {
+            r = rows[i];
+            // Kolom: 0=pertanyaan, 1..6=pilihan A-F (E/F opsional), 7=kunci (file lama: 5=kunci)
+            if (!r || r.length < 6) continue;
+            text += (r[0] || '') + '\n';
+            var keys = ['A', 'B', 'C', 'D', 'E', 'F'];
+            for (j = 1; j <= 6; j++) {
+              if (r[j]) text += keys[j - 1] + '. ' + r[j] + '\n';
+            }
+            text += 'Jawaban: ' + (r[7] || r[5] || '') + '\n\n';
+          }
+          var area = document.getElementById('importArea');
+          area.value = text.replace(/\n+$/,'');
+          area.dispatchEvent(new Event('input'));
+        };
+        rd.readAsArrayBuffer(f);
+        this.value = '';
+      });
+    })();
+  </script>
 </body>
-</html>

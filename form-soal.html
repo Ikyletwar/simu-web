@@ -131,6 +131,14 @@
                 <label class="label" for="pilihan_d">Pilihan D</label>
                 <input type="text" id="pilihan_d" class="input" placeholder="Isi pilihan D" required>
               </div>
+              <div class="form-group">
+                <label class="label" for="pilihan_e">Pilihan E <span class="hint">(opsional)</span></label>
+                <input type="text" id="pilihan_e" class="input opt-optional" placeholder="Isi pilihan E (opsional)">
+              </div>
+              <div class="form-group">
+                <label class="label" for="pilihan_f">Pilihan F <span class="hint">(opsional)</span></label>
+                <input type="text" id="pilihan_f" class="input opt-optional" placeholder="Isi pilihan F (opsional, butuh E terisi)">
+              </div>
 
               <div class="form-group">
                 <label class="label">Jawaban Benar</label>
@@ -151,7 +159,16 @@
                     <input type="radio" name="jawaban_benar" value="d">
                     <span>D</span>
                   </label>
+                  <label class="radio-option">
+                    <input type="radio" name="jawaban_benar" value="e" disabled>
+                    <span>E</span>
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="jawaban_benar" value="f" disabled>
+                    <span>F</span>
+                  </label>
                 </div>
+                <p class="hint">Radio E/F aktif otomatis begitu isi pilihan E/F. Maksimal 6 pilihan (A-F); A-D wajib terisi.</p>
               </div>
             </div>
 
@@ -173,6 +190,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <script src="js/katex-render.js"></script>
@@ -255,10 +273,33 @@
         pgFields.classList.toggle('hidden', isEsai);
         esaiHint.hidden = !isEsai;
         pgFields.querySelectorAll('input').forEach(function (i) {
+          // E/F (opsional) tidak pernah wajib diisi.
+          if (i.classList.contains('opt-optional')) return;
           i.required = !isEsai;
         });
       }
       soalTipeSelect.addEventListener('change', applyTipe);
+
+      // Radio E/F aktif otomatis saat pilihan E/F terisi (kontigu dari E).
+      function syncOptionalOptions() {
+        const eVal = (document.getElementById('pilihan_e').value || '').trim();
+        const fVal = (document.getElementById('pilihan_f').value || '').trim();
+        const radioE = document.querySelector('input[name="jawaban_benar"][value="e"]');
+        const radioF = document.querySelector('input[name="jawaban_benar"][value="f"]');
+        const eEmpty = !eVal;
+        const fEmpty = !fVal;
+        if (radioE) {
+          radioE.disabled = eEmpty;
+          if (eEmpty) radioE.checked = false;
+        }
+        if (radioF) {
+          // F hanya bisa jadi kunci kalau E juga terisi (tanpa celah).
+          radioF.disabled = eEmpty || fEmpty;
+          if (eEmpty || fEmpty) radioF.checked = false;
+        }
+      }
+      document.getElementById('pilihan_e').addEventListener('input', syncOptionalOptions);
+      document.getElementById('pilihan_f').addEventListener('input', syncOptionalOptions);
 
       document.getElementById('addTopicBtn').addEventListener('click', async function () {
         const sid = subjectSelect.value;
@@ -302,11 +343,18 @@
         soalTipeSelect.value = soal.tipe === 'esai' ? 'esai' : 'pg';
         applyTipe();
         document.getElementById('pertanyaan').value = soal.pertanyaan;
-        document.getElementById('pilihan_a').value = soal.pilihan_a;
-        document.getElementById('pilihan_b').value = soal.pilihan_b;
-        document.getElementById('pilihan_c').value = soal.pilihan_c;
-        document.getElementById('pilihan_d').value = soal.pilihan_d;
-        document.querySelector('input[name="jawaban_benar"][value="' + soal.jawaban_benar + '"]').checked = !!soal.jawaban_benar;
+        document.getElementById('pilihan_a').value = soal.pilihan_a || '';
+        document.getElementById('pilihan_b').value = soal.pilihan_b || '';
+        document.getElementById('pilihan_c').value = soal.pilihan_c || '';
+        document.getElementById('pilihan_d').value = soal.pilihan_d || '';
+        document.getElementById('pilihan_e').value = soal.pilihan_e || '';
+        document.getElementById('pilihan_f').value = soal.pilihan_f || '';
+        syncOptionalOptions();
+        // Soal esai tidak punya kunci jawaban, jadi lewati pengisian radio PG.
+        if (soal.tipe !== 'esai' && soal.jawaban_benar) {
+          const jbRadio = document.querySelector('input[name="jawaban_benar"][value="' + soal.jawaban_benar + '"]');
+          if (jbRadio) jbRadio.checked = true;
+        }
         document.getElementById('pertanyaan').focus();
       }
 
@@ -320,10 +368,19 @@
         const pilihan_b = document.getElementById('pilihan_b').value.trim();
         const pilihan_c = document.getElementById('pilihan_c').value.trim();
         const pilihan_d = document.getElementById('pilihan_d').value.trim();
+        const pilihan_e = document.getElementById('pilihan_e').value.trim();
+        const pilihan_f = document.getElementById('pilihan_f').value.trim();
         const jawabanBenar = document.querySelector('input[name="jawaban_benar"]:checked');
 
         if (tipe === 'pg') {
-          const pilihanList = [pilihan_a, pilihan_b, pilihan_c, pilihan_d];
+          // Opsi E/F opsional; F tidak boleh terisi kalau E kosong (harus kontigu).
+          if (!pilihan_e && pilihan_f) {
+            showSnackbar('Isi pilihan E lebih dulu sebelum mengisi pilihan F.', 'error');
+            return;
+          }
+
+          // Duplikat dicek hanya di opsi yang terisi (kolom kosong bukan duplikat).
+          const pilihanList = [pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, pilihan_f].filter(function (v) { return v; });
           const duplikat = pilihanList.some(function (v, i) {
             return pilihanList.indexOf(v) !== i;
           });
@@ -334,6 +391,13 @@
 
           if (!jawabanBenar) {
             showSnackbar('Pilih jawaban yang benar.', 'error');
+            return;
+          }
+          // Kunci tidak boleh menunjuk ke opsi yang tidak terisi (mis. kunci F saat F kosong).
+          const kunci = jawabanBenar.value;
+          const kunciIsi = [pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, pilihan_f][{ a: 0, b: 1, c: 2, d: 3, e: 4, f: 5 }[kunci]];
+          if (!kunciIsi) {
+            showSnackbar('Kunci jawaban menunjuk ke opsi kosong.', 'error');
             return;
           }
         }
@@ -354,6 +418,8 @@
           pilihan_b: pilihan_b,
           pilihan_c: pilihan_c,
           pilihan_d: pilihan_d,
+          pilihan_e: pilihan_e,
+          pilihan_f: pilihan_f,
           jawaban_benar: tipe === 'esai' ? '' : jawabanBenar.value,
           created_by: profile.id
         };

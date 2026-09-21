@@ -47,23 +47,28 @@ function clearFormError(el) {
 
 // ============================================================
 // LOGIN SISWA (NIS + password)
-// Siswa login memakai email semu: <nis>@simu.local
+// Siswa login memakai NIS sebagai username. Bila kolom diisi email
+// (mengandung @), email tersebut langsung dipakai. Jika tidak (NIS),
+// dibentuk ke email semu <nis>@simu.local.
 // ============================================================
 async function loginSiswa() {
-  const nis = document.getElementById('nis').value.trim();
+  const raw = document.getElementById('nis').value.trim();
   const password = document.getElementById('password').value;
   const errorEl = document.getElementById('errorMessage');
   const submitBtn = document.getElementById('submitBtn');
   const btnText = document.getElementById('btnText');
   const btnLoader = document.getElementById('btnLoader');
 
-  if (!nis || !password) {
-    showFormError(errorEl, 'Harap isi NIS dan password.');
+  if (!raw || !password) {
+    showFormError(errorEl, 'Harap isi NIS/username dan password.');
     return;
   }
 
   clearFormError(errorEl);
-  const email = nis + '@simu.local';
+  let email = raw;
+  if (raw.indexOf('@') === -1) {
+    email = raw + '@simu.local';
+  }
 
   // Set loading state
   submitBtn.disabled = true;
@@ -103,22 +108,29 @@ async function loginSiswa() {
 }
 
 // ============================================================
-// LOGIN ADMIN (email + password)
+// LOGIN ADMIN (email atau username + password)
 // ============================================================
 async function loginAdmin() {
-  const email = document.getElementById('email').value.trim();
+  const raw = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const errorEl = document.getElementById('errorMessage');
   const submitBtn = document.getElementById('submitBtn');
   const btnText = document.getElementById('btnText');
   const btnLoader = document.getElementById('btnLoader');
 
-  if (!email || !password) {
-    showFormError(errorEl, 'Harap isi email dan password.');
+  if (!raw || !password) {
+    showFormError(errorEl, 'Harap isi email/username dan password.');
     return;
   }
 
   clearFormError(errorEl);
+
+  // Username (tanpa @) dipetakan ke email <username>@simu.local,
+  // sama seperti siswa memakai NIS.
+  let email = raw;
+  if (raw.indexOf('@') === -1) {
+    email = raw + '@simu.local';
+  }
 
   submitBtn.disabled = true;
   btnText.textContent = 'Memproses...';
@@ -173,9 +185,20 @@ async function logout() {
 // guard('siswa') atau guard('admin') atau guard() (login saja)
 // ============================================================
 async function guard(role) {
-  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+  // 1. Coba baca session dari storage.
+  let { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
+  // 2. Kalau belum ada, coba ambil ulang dari server (menggunakan token
+  //    tersimpan / refresh) sebelum memutuskan redirect ke index.html.
   if (sessionError || !session) {
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+    if (!userError && userData && userData.user) {
+      const refreshed = await supabaseClient.auth.getSession();
+      session = refreshed.data && refreshed.data.session;
+    }
+  }
+
+  if (!session) {
     window.location.href = 'index.html';
     return null;
   }
@@ -183,8 +206,19 @@ async function guard(role) {
   const userId = session.user.id;
   const profile = await getProfile(userId);
 
-  if (!profile) {
-    await supabaseClient.auth.signOut();
+  // Profil TIDAK ADA (barisnya tidak ada di tabel users) => layak sign out.
+  // Profil GAGAL dimuat karena error/network => jangan sign out, biarkan halaman
+  // mencoba lagi, karena logout bisa bikin loop yang menjebak user.
+  if (profile === null) {
+    const check = await supabaseClient.from('users')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (check.error || !check.data) {
+      await supabaseClient.auth.signOut();
+      window.location.href = 'index.html';
+      return null;
+    }
     window.location.href = 'index.html';
     return null;
   }

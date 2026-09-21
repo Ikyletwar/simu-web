@@ -79,17 +79,26 @@
             <h1 class="page-title">Data Guru</h1>
             <p class="text-muted hint">Kelola akun admin/guru (guru yang mengampu mata pelajaran). Guru bisa login, menambah soal, membuat ujian, dan melihat laporan.</p>
           </div>
-          <button class="btn btn-secondary" id="addGuruBtn">
+          <button class="btn btn-primary" id="addGuruBtn">
             <i data-lucide="user-plus"></i>
             <span>Tambah Guru</span>
           </button>
+        </div>
+
+        <!-- Pencarian guru -->
+        <div class="card filter-bar mb-16 flex gap-12 items-center flex-wrap">
+          <div class="search-field">
+            <i data-lucide="search"></i>
+            <input type="search" id="searchGuru" class="input" placeholder="Cari nama atau email guru...">
+          </div>
+          <span class="hint" id="guruCount"></span>
         </div>
 
         <div id="loadingBox" class="loading"><span class="spinner"></span></div>
 
         <div id="emptyState" class="card empty-state hidden">
           <i data-lucide="inbox"></i>
-          <p class="hint">Belum ada data guru.</p>
+          <p class="hint" id="emptyGuruText">Belum ada data guru.</p>
         </div>
 
         <div class="card table-wrapper" id="tableCard" style="display:none;">
@@ -115,19 +124,26 @@
   <div class="modal-overlay" id="guruAddModal">
     <div class="modal">
       <h3 class="modal-title">Tambah Guru</h3>
-      <p class="modal-text">Akun baru berperan admin. Guru dapat masuk dengan email &amp; password ini.</p>
+      <p class="modal-text">Akun baru berperan admin. Guru dapat masuk dengan email <b>atau username</b> &amp; password ini.</p>
 
       <div class="form-group mb-16">
         <label class="label" for="guruNama">Nama Lengkap</label>
         <input type="text" id="guruNama" class="input" placeholder="Nama guru" maxlength="100">
       </div>
       <div class="form-group mb-16">
-        <label class="label" for="guruEmail">Email Login</label>
-        <input type="email" id="guruEmail" class="input" placeholder="guru@simu.local">
+        <label class="label" for="guruEmail">Email / Username Login</label>
+        <input type="text" id="guruEmail" class="input" placeholder="guru@simu.local atau username">
+        <span class="hint">Bila diisi username (tanpa @), login pakai <b>&lt;username&gt;@simu.local</b>.</span>
       </div>
       <div class="form-group mb-16">
         <label class="label" for="guruPassword">Password</label>
-        <input type="password" id="guruPassword" class="input" placeholder="Minimal 6 karakter">
+        <div class="password-field">
+          <input type="password" id="guruPassword" class="input" placeholder="Minimal 6 karakter">
+          <button type="button" class="input-toggle" id="guruPasswordToggle" aria-label="Lihat password" aria-pressed="false">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
+        <span class="hint" id="guruPasswordHint">Minimal 6 karakter.</span>
       </div>
       <div class="form-group mb-16">
         <label class="label" for="guruSubjectId">Mata Pelajaran yang Diampu</label>
@@ -136,8 +152,18 @@
 
       <div id="guruAddError" class="error-message hidden mb-16"></div>
 
+      <!-- Panel kredensial setelah berhasil dibuat -->
+      <div id="guruCreated" class="card import-guide mb-16 hidden">
+        <p class="text-success mb-8"><i data-lucide="check-circle"></i> Akun berhasil dibuat. Catat kredensial ini:</p>
+        <div class="credential-box" id="guruCredText">-</div>
+        <div class="flex gap-8 flex-wrap mt-12">
+          <button type="button" class="btn btn-secondary btn-sm" id="guruCopyCred"><i data-lucide="copy"></i> Salin Kredensial</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="guruAddAnotherBtn"><i data-lucide="plus"></i> Tambah Lagi</button>
+        </div>
+      </div>
+
       <div class="modal-actions">
-        <button class="btn btn-secondary btn-sm" id="guruAddCancelBtn">Batal</button>
+        <button class="btn btn-secondary btn-sm" id="guruAddCancelBtn">Tutup</button>
         <button class="btn btn-primary btn-sm" id="guruAddConfirmBtn">
           <span id="guruAddConfirmText">Buat Akun</span>
           <span id="guruAddConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
@@ -153,13 +179,55 @@
       <p class="modal-text">Ganti password akun <b id="guruResetName"></b>.</p>
       <div class="form-group mb-24">
         <label class="label" for="guruResetPassword">Password Baru</label>
-        <input type="password" id="guruResetPassword" class="input" placeholder="Minimal 6 karakter">
+        <div class="password-field">
+          <input type="password" id="guruResetPassword" class="input" placeholder="Minimal 6 karakter">
+          <button type="button" class="input-toggle" id="guruResetToggle" aria-label="Lihat password" aria-pressed="false">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary btn-sm" id="guruResetCancelBtn">Batal</button>
         <button class="btn btn-primary btn-sm" id="guruResetConfirmBtn">
           <span id="guruResetConfirmText">Simpan Password</span>
           <span id="guruResetConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal edit guru (nama, mapel, login, password) -->
+  <div class="modal-overlay" id="guruEditModal">
+    <div class="modal">
+      <h3 class="modal-title">Edit Guru</h3>
+      <p class="modal-text">Ubah data akun <b id="guruEditName"></b>.</p>
+      <div class="form-group mb-16">
+        <label class="label" for="guruEditNama">Nama Lengkap</label>
+        <input type="text" id="guruEditNama" class="input" placeholder="Nama guru" maxlength="100">
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="guruEditSubject">Mata Pelajaran yang Diampu</label>
+        <select id="guruEditSubject" class="select"></select>
+      </div>
+      <div class="form-group mb-16">
+        <label class="label" for="guruEditEmail">Email / Username Login</label>
+        <input type="text" id="guruEditEmail" class="input" placeholder="email atau username">
+        <span class="hint">Kosongkan bila tidak ingin mengganti. Username (tanpa @) menjadi <b>&lt;username&gt;@simu.local</b>.</span>
+      </div>
+      <div class="form-group mb-24">
+        <label class="label" for="guruEditPassword">Password Baru (opsional)</label>
+        <div class="password-field">
+          <input type="password" id="guruEditPassword" class="input" placeholder="Minimal 6 karakter">
+          <button type="button" class="input-toggle" id="guruEditToggle" aria-label="Lihat password" aria-pressed="false">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="guruEditCancelBtn">Batal</button>
+        <button class="btn btn-primary btn-sm" id="guruEditConfirmBtn">
+          <span id="guruEditConfirmText">Simpan Perubahan</span>
+          <span id="guruEditConfirmLoader" class="hidden"><span class="spinner-small"></span></span>
         </button>
       </div>
     </div>
@@ -185,6 +253,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script src="js/guru.js"></script>
 </body>
 </html>

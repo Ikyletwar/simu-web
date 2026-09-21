@@ -29,7 +29,8 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'role', 'siswa'),
     NULL,
     NULL
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

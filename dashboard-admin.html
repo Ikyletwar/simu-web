@@ -133,6 +133,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/common.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async function () {
       const profile = await guard('admin');
@@ -150,10 +151,22 @@
           supabaseClient.from('users').select('id', { count: 'exact', head: true }).eq('role', 'siswa'),
           supabaseClient.from('majors').select('id', { count: 'exact', head: true })
         ]);
-        document.getElementById('statSoal').textContent = soalRes.count ?? 0;
-        document.getElementById('statUjian').textContent = ujianRes.count ?? 0;
-        document.getElementById('statSiswa').textContent = siswaRes.count ?? 0;
-        document.getElementById('statJurusan').textContent = jurusanRes.count ?? 0;
+        // supabase-js v2 mengembalikan {data, error}, tidak melempar exception.
+        // Cek .error tiap resolusi agar kegagalan tidak diam-diam jadi 0.
+        const setStat = function (elId, res) {
+          const el = document.getElementById(elId);
+          if (res && !res.error) {
+            el.textContent = res.count != null ? res.count : 0;
+          } else {
+            el.textContent = '-';
+            console.error('Statistik ' + elId + ' gagal:', res && res.error);
+            showSnackbar('Gagal memuat sebagian statistik.', 'error');
+          }
+        };
+        setStat('statSoal', soalRes);
+        setStat('statUjian', ujianRes);
+        setStat('statSiswa', siswaRes);
+        setStat('statJurusan', jurusanRes);
       } catch (err) {
         console.error('Statistik gagal dimuat:', err.message);
       }
@@ -166,49 +179,55 @@
           supabaseClient.from('questions').select('id, pertanyaan, subject_id').order('created_at', { ascending: false }).limit(5)
         ]);
 
-        const subjectMap = {};
-        (subjRes.data || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
-
         const recentExams = document.getElementById('recentExams');
-        recentExams.innerHTML = '';
-        if (!examRes.data || examRes.data.length === 0) {
-          recentExams.innerHTML = '<p class="hint">Belum ada ujian.</p>';
-        } else {
-          const now = new Date();
-          examRes.data.forEach(function (ex) {
-            const start = new Date(ex.tanggal_mulai);
-            const end = new Date(ex.tanggal_selesai);
-            let statusClass = 'badge-neutral';
-            let statusText = 'Selesai';
-            if (now < start) { statusClass = 'badge-warning'; statusText = 'Segera'; }
-            else if (now <= end) { statusClass = 'badge-primary'; statusText = 'Berlangsung'; }
-            const item = document.createElement('div');
-            item.className = 'dash-item';
-            item.innerHTML =
-              '<a href="kelola-ujian.html" class="dash-item-main">' +
-              '  <span class="font-medium">' + escapeHtml(ex.judul) + '</span>' +
-              '  <span class="hint">' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</span>' +
-              '</a>' +
-              '<span class="badge ' + statusClass + '">' + statusText + '</span>';
-            recentExams.appendChild(item);
-          });
-        }
-
         const recentSoals = document.getElementById('recentSoals');
+        recentExams.innerHTML = '';
         recentSoals.innerHTML = '';
-        if (!soalRes.data || soalRes.data.length === 0) {
-          recentSoals.innerHTML = '<p class="hint">Belum ada soal.</p>';
+        if (examRes.error || subjRes.error || soalRes.error) {
+          recentExams.innerHTML = '<p class="hint">Gagal memuat ringkasan.</p>';
+          recentSoals.innerHTML = '<p class="hint">Gagal memuat ringkasan.</p>';
+          console.error('Ringkasan error:', examRes.error, subjRes.error, soalRes.error);
+          showSnackbar('Gagal memuat ringkasan terbaru.', 'error');
         } else {
-          soalRes.data.forEach(function (q) {
-            const item = document.createElement('div');
-            item.className = 'dash-item';
-            item.innerHTML =
-              '<a href="kelola-soal.html" class="dash-item-main">' +
-              '  <span class="font-medium">' + escapeHtml(truncateText(q.pertanyaan, 60)) + '</span>' +
-              '  <span class="hint">' + escapeHtml(subjectMap[q.subject_id] || '-') + '</span>' +
-              '</a>';
-            recentSoals.appendChild(item);
-          });
+          const subjectMap = {};
+          (subjRes.data || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
+
+          if (!examRes.data || examRes.data.length === 0) {
+            recentExams.innerHTML = '<p class="hint">Belum ada ujian.</p>';
+          } else {
+            const now = new Date();
+            examRes.data.forEach(function (ex) {
+              const start = new Date(ex.tanggal_mulai);
+              const end = new Date(ex.tanggal_selesai);
+              let statusClass = 'badge-neutral';
+              let statusText = 'Selesai';
+              if (now < start) { statusClass = 'badge-warning'; statusText = 'Segera'; }
+              else if (now <= end) { statusClass = 'badge-primary'; statusText = 'Berlangsung'; }
+              const item = document.createElement('div');
+              item.className = 'dash-item';
+              item.innerHTML =
+                '<a href="kelola-ujian.html" class="dash-item-main">' +
+                '  <span class="font-medium">' + escapeHtml(ex.judul) + '</span>' +
+                '  <span class="hint">' + escapeHtml(subjectMap[ex.subject_id] || '-') + '</span>' +
+                '</a>' +
+                '<span class="badge ' + statusClass + '">' + statusText + '</span>';
+              recentExams.appendChild(item);
+            });
+          }
+          if (!soalRes.data || soalRes.data.length === 0) {
+            recentSoals.innerHTML = '<p class="hint">Belum ada soal.</p>';
+          } else {
+            soalRes.data.forEach(function (q) {
+              const item = document.createElement('div');
+              item.className = 'dash-item';
+              item.innerHTML =
+                '<a href="kelola-soal.html" class="dash-item-main">' +
+                '  <span class="font-medium">' + escapeHtml(truncateText(q.pertanyaan, 60)) + '</span>' +
+                '  <span class="hint">' + escapeHtml(subjectMap[q.subject_id] || '-') + '</span>' +
+                '</a>';
+              recentSoals.appendChild(item);
+            });
+          }
         }
       } catch (err) {
         console.error('Ringkasan terbaru gagal dimuat:', err.message);
@@ -237,17 +256,6 @@
         logout();
       });
     });
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text == null ? '' : String(text);
-      return div.innerHTML;
-    }
-
-    function truncateText(text, max) {
-      const s = String(text || '');
-      return s.length > max ? s.slice(0, max).trimEnd() + '...' : s;
-    }
   </script>
 </body>
 </html>
