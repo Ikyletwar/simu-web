@@ -73,44 +73,102 @@
           <i data-lucide="menu"></i>
         </button>
         <div class="topbar-user">
-          <span class="user-label" id="userName">Admin</span>
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div class="user-meta">
+            <span class="user-label" id="userName">Admin</span>
+            <span class="user-role" id="userRole">Administrator</span>
+          </div>
         </div>
       </header>
 
       <div class="content">
-        <h1 class="page-title">Dashboard</h1>
-        <p class="text-muted mb-24" id="welcomeText">Selamat datang kembali.</p>
+        <div class="page-head">
+          <div>
+            <span class="page-eyebrow">Ringkasan</span>
+            <h1 class="page-title">Dashboard</h1>
+            <p class="text-muted" id="welcomeText">Selamat datang kembali.</p>
+          </div>
+          <div class="page-head-actions">
+            <a href="kelola-soal.html" class="btn btn-secondary btn-sm">
+              <i data-lucide="file-plus-2"></i><span>Buat Soal</span>
+            </a>
+            <a href="kelola-ujian.html" class="btn btn-primary btn-sm">
+              <i data-lucide="plus"></i><span>Buat Ujian</span>
+            </a>
+          </div>
+        </div>
 
         <div class="stat-grid">
           <div class="card stat-card">
-            <div class="stat-icon" id="statSoalIcon"><i data-lucide="file-text"></i></div>
+            <div class="stat-icon stat-icon-primary" id="statSoalIcon"><i data-lucide="file-text"></i></div>
             <div class="stat-info">
               <span class="stat-value" id="statSoal">0</span>
-              <span class="stat-label">Total Soal</span>
+              <span class="stat-label" id="statSoalLabel">Total Soal</span>
             </div>
           </div>
           <div class="card stat-card">
-            <div class="stat-icon" id="statUjianIcon"><i data-lucide="clock"></i></div>
+            <div class="stat-icon stat-icon-warning" id="statUjianIcon"><i data-lucide="clock"></i></div>
             <div class="stat-info">
               <span class="stat-value" id="statUjian">0</span>
-              <span class="stat-label">Total Ujian</span>
+              <span class="stat-label" id="statUjianLabel">Total Ujian</span>
             </div>
           </div>
           <div class="card stat-card">
-            <div class="stat-icon" id="statSiswaIcon"><i data-lucide="users"></i></div>
+            <div class="stat-icon stat-icon-success" id="statSiswaIcon"><i data-lucide="users"></i></div>
             <div class="stat-info">
               <span class="stat-value" id="statSiswa">0</span>
-              <span class="stat-label">Total Siswa</span>
+              <span class="stat-label" id="statSiswaLabel">Total Siswa</span>
             </div>
           </div>
           <div class="card stat-card">
-            <div class="stat-icon" id="statJurusanIcon"><i data-lucide="school"></i></div>
+            <div class="stat-icon stat-icon-info" id="statJurusanIcon"><i data-lucide="school"></i></div>
             <div class="stat-info">
               <span class="stat-value" id="statJurusan">0</span>
-              <span class="stat-label">Total Jurusan</span>
+              <span class="stat-label" id="statJurusanLabel">Total Jurusan</span>
             </div>
           </div>
         </div>
+
+        <section class="quick-section">
+          <div class="section-head">
+            <h2>Aksi Cepat</h2>
+            <span class="hint">Langkah yang paling sering dipakai</span>
+          </div>
+          <div class="quick-grid">
+            <a href="kelola-soal.html" class="quick-card">
+              <span class="quick-icon"><i data-lucide="file-text"></i></span>
+              <span class="quick-body">
+                <span class="quick-title">Kelola Soal</span>
+                <span class="quick-desc">Tambah, impor, dan rapikan bank soal</span>
+              </span>
+              <i data-lucide="arrow-right" class="quick-arrow"></i>
+            </a>
+            <a href="kelola-ujian.html" class="quick-card">
+              <span class="quick-icon"><i data-lucide="clock"></i></span>
+              <span class="quick-body">
+                <span class="quick-title">Kelola Ujian</span>
+                <span class="quick-desc">Atur jadwal, durasi, dan publikasi</span>
+              </span>
+              <i data-lucide="arrow-right" class="quick-arrow"></i>
+            </a>
+            <a href="koreksi-esai.html" class="quick-card">
+              <span class="quick-icon"><i data-lucide="clipboard-check"></i></span>
+              <span class="quick-body">
+                <span class="quick-title">Koreksi Esai</span>
+                <span class="quick-desc">Nilai jawaban esai per soal atau per siswa</span>
+              </span>
+              <i data-lucide="arrow-right" class="quick-arrow"></i>
+            </a>
+            <a href="laporan.html" class="quick-card">
+              <span class="quick-icon"><i data-lucide="clipboard-list"></i></span>
+              <span class="quick-body">
+                <span class="quick-title">Laporan Nilai</span>
+                <span class="quick-desc">Lihat nilai, detail jawaban, dan unduh</span>
+              </span>
+              <i data-lucide="arrow-right" class="quick-arrow"></i>
+            </a>
+          </div>
+        </section>
 
         <div class="admin-dash-grid">
           <div class="card">
@@ -128,6 +186,18 @@
             <div id="recentSoals" class="dash-list"><p class="hint">Memuat...</p></div>
           </div>
         </div>
+
+        <section class="card guide-card">
+          <div class="section-head">
+            <h2>Alur Kerja Singkat</h2>
+            <span class="hint">Urutan yang disarankan</span>
+          </div>
+          <ol class="guide-steps">
+            <li><span class="guide-num">1</span><div><b>Buat soal</b><span>Isi manual atau impor dari file teks/Excel.</span></div></li>
+            <li><span class="guide-num">2</span><div><b>Susun ujian</b><span>Pilih soal, atur jadwal, durasi, dan publikasikan.</span></div></li>
+            <li><span class="guide-num">3</span><div><b>Nilai &amp; laporan</b><span>Koreksi esai bila ada, lalu unduh laporan nilai.</span></div></li>
+          </ol>
+        </section>
       </div>
     </main>
   </div>
@@ -146,6 +216,19 @@
       document.getElementById('userName').textContent = profile.nama || 'Admin';
       document.getElementById('welcomeText').textContent =
         'Selamat datang kembali, ' + (profile.nama || 'Admin') + '.';
+      document.getElementById('userRole').textContent =
+        profile.role === 'guru' ? 'Guru' : 'Administrator';
+      const initial = document.getElementById('userAvatar');
+      if (initial) {
+        initial.textContent = (profile.nama || 'A').trim().charAt(0).toUpperCase() || 'A';
+      }
+      // Guru dibatasi RLS per mata pelajaran, jadi label angka dibuat jujur.
+      if (profile.role === 'guru') {
+        const s1 = document.getElementById('statSoalLabel');
+        const s2 = document.getElementById('statUjianLabel');
+        if (s1) s1.textContent = 'Soal Mapel Anda';
+        if (s2) s2.textContent = 'Ujian Mapel Anda';
+      }
 
       // Statistik
       try {
@@ -164,7 +247,10 @@
           } else {
             el.textContent = '-';
             console.error('Statistik ' + elId + ' gagal:', res && res.error);
-            showSnackbar('Gagal memuat sebagian statistik.', 'error');
+            if (!setStat._warned) {
+              setStat._warned = true;
+              showSnackbar('Sebagian statistik tidak dapat dimuat. Data lain tetap tampil.', 'warning');
+            }
           }
         };
         setStat('statSoal', soalRes);
@@ -197,7 +283,12 @@
           (subjRes.data || []).forEach(function (s) { subjectMap[s.id] = s.nama; });
 
           if (!examRes.data || examRes.data.length === 0) {
-            recentExams.innerHTML = '<p class="hint">Belum ada ujian.</p>';
+            recentExams.innerHTML =
+              '<div class="empty-inline">' +
+              '<i data-lucide="calendar-plus"></i>' +
+              '<p class="hint">Belum ada ujian yang dibuat.</p>' +
+              '<a href="kelola-ujian.html" class="btn btn-secondary btn-sm">Buat Ujian Pertama</a>' +
+              '</div>';
           } else {
             const now = new Date();
             examRes.data.forEach(function (ex) {
@@ -219,7 +310,12 @@
             });
           }
           if (!soalRes.data || soalRes.data.length === 0) {
-            recentSoals.innerHTML = '<p class="hint">Belum ada soal.</p>';
+            recentSoals.innerHTML =
+              '<div class="empty-inline">' +
+              '<i data-lucide="file-plus-2"></i>' +
+              '<p class="hint">Bank soal masih kosong.</p>' +
+              '<a href="kelola-soal.html" class="btn btn-secondary btn-sm">Tambah Soal</a>' +
+              '</div>';
           } else {
             soalRes.data.forEach(function (q) {
               const item = document.createElement('div');

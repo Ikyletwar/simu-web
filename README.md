@@ -25,7 +25,9 @@ Aplikasi ujian sekolah berbasis web untuk **SMK Negeri 1 Maluku Tengah**.
   dan otomatis pindah ke bagian "Ujian Tersedia" saat waktunya tiba
 - **Anti curang**: urutan soal & pilihan diacak per siswa (bisa dimatikan per ujian
   lewat toggle "Acak Urutan Soal" di Kelola Ujian), deteksi pindah tab/layar penuh
-  (peringatan, otomatis dikumpulkan setelah 3x), blokir klik kanan & pintasan umum
+  (peringatan, otomatis dikumpulkan setelah 3x), blokir klik kanan & pintasan umum,
+  **deteksi DevTools**, blokir **copy/cut/paste/print/drag**, indikator penyimpanan
+  dan penghitung pelanggaran real-time di header ujian, banner pengingat layar penuh
 - **Autosave jawaban**: jawaban disimpan otomatis di perangkat (localStorage) tiap beberapa
   detik. Kalau koneksi putus / tab tertutup, ujian bisa dilanjutkan dari soal terakhir
 - Data siswa kini punya **pencarian & filter**, tombol **Tambah Siswa** (1 akun), **Reset
@@ -330,6 +332,23 @@ python3 -m http.server 8080
 ```
 
 Lalu buka `http://localhost:8080`.
+
+## Peningkatan UI & Anti-Curang (November 2026)
+
+Ringkasan perubahan ada di [`ENHANCEMENTS.md`](ENHANCEMENTS.md). Intinya:
+
+- Dashboard admin/guru: header halaman, aksi cepat, panduan alur kerja, statistik
+  berwarna, empty state dengan tombol aksi, dan label statistik yang jujur untuk guru.
+- Topbar seragam di semua halaman guru/admin: avatar inisial + label role otomatis
+  (`updateShellUser()` di `js/auth.js`).
+- Halaman ujian: progress bar, status autosave, penghitung pelanggaran, toolbar progres,
+  banner layar penuh, dan modal peringatan anti-curang.
+- Anti-curang klien diperkuat: deteksi DevTools, blokir copy/paste/print/shortcut,
+  blokir seleksi teks, dan pencatatan jenis pelanggaran (`tab`, `fullscreen`, `devtools`).
+
+> Catatan keamanan: anti-curang ini berjalan di sisi klien. Untuk menutup celah bagi
+> siswa yang paham IT, kunci jawaban harus dipindahkan ke server dan penilaian dilakukan
+> lewat RPC (belum termasuk dalam perubahan ini).
 
 ## User Dummy
 

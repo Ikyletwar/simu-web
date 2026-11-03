@@ -120,8 +120,12 @@ function saveDraft() {
       cheatLog: cheatLog,
       updatedAt: Date.now()
     }));
+    const jam = new Date();
+    const pad = function (n) { return String(n).padStart(2, '0'); };
+    setSaveStatus('Tersimpan ' + pad(jam.getHours()) + ':' + pad(jam.getMinutes()), 'is-saved');
   } catch (e) {
     // storage penuh / blocked - abaikan
+    setSaveStatus('Gagal menyimpan', 'is-error');
   }
 }
 
@@ -140,6 +144,30 @@ function loadDraft() {
 function clearDraft() {
   try { localStorage.removeItem(draftKey()); } catch (e) {}
 }
+
+// ============================================================
+// INDIKATOR PENYIMPANAN & INTEGRITAS
+// ============================================================
+function setSaveStatus(text, tone) {
+  const el = document.getElementById('saveStatus');
+  const label = document.getElementById('saveStatusText');
+  if (!el || !label) return;
+  label.textContent = text;
+  el.classList.remove('is-saving', 'is-saved', 'is-error');
+  el.classList.add(tone || 'is-saved');
+}
+
+function updateIntegrityUI() {
+  const pill = document.getElementById('violationPill');
+  const count = document.getElementById('violationCount');
+  const max = document.getElementById('violationMax');
+  if (!pill || !count) return;
+  if (max) max.textContent = String(MAX_VIOLATIONS);
+  count.textContent = String(cheatViolations);
+  pill.classList.toggle('hidden', cheatViolations === 0);
+  pill.classList.toggle('is-danger', cheatViolations >= MAX_VIOLATIONS - 1);
+}
+
 
 // -- Cache map id kelas -> nama (dipakai untuk penyetaraan rombel TJKT/TK) --
 let classMapCache = null;
@@ -291,6 +319,8 @@ async function loadUjian() {
   });
 
   document.getElementById('examTitle').textContent = exam.judul || 'Ujian';
+  const sub = document.getElementById('examSubtitle');
+  if (sub) sub.textContent = 'Durasi ' + exam.durasi_menit + ' menit — mode ujian aman';
 
   // ---- Siapkan layar mulai / lanjut ----
   setupStartScreen();
@@ -381,16 +411,14 @@ function setupStartScreen() {
       cheatLog = [];
     }
 
-    try {
-      if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
-      }
-    } catch (e) { /* fullscreen mungkin ditolak, lanjut saja */ }
+    await attemptFullscreen();
 
     document.getElementById('loadingBox').classList.add('hidden');
     overlay.classList.add('hidden');
     document.getElementById('examContent').classList.remove('hidden');
 
+    updateIntegrityUI();
+    setSaveStatus('Tersimpan', 'is-saved');
     startTimer();
     renderSoal();
     scheduleAutosave();
@@ -432,13 +460,15 @@ function startTimer() {
 
 function updateTimerDisplay() {
   const el = document.getElementById('examTimer');
+  const text = document.getElementById('examTimerText');
   const mm = String(Math.floor(sisaDetik / 60)).padStart(2, '0');
   const ss = String(sisaDetik % 60).padStart(2, '0');
-  el.textContent = mm + ':' + ss;
-  if (sisaDetik < 60) {
-    el.classList.add('danger');
-  } else {
-    el.classList.remove('danger');
+  const label = mm + ':' + ss;
+  if (text) text.textContent = label;
+  else if (el) el.textContent = label;
+  if (el) {
+    el.classList.toggle('danger', sisaDetik < 60);
+    el.classList.toggle('warning', sisaDetik >= 60 && sisaDetik < 300);
   }
 }
 
@@ -539,12 +569,26 @@ function renderQuestionMap() {
     if (idx === currentIndex) btn.classList.add('current');
     if (jawaban[soal.question_id]) btn.classList.add('answered');
     btn.textContent = idx + 1;
+    btn.setAttribute('aria-label', 'Soal ' + (idx + 1));
     btn.addEventListener('click', function () {
       currentIndex = idx;
       renderSoal();
     });
     wrap.appendChild(btn);
   });
+  updateExamMeta();
+}
+
+function updateExamMeta() {
+  const total = soalList.length;
+  const terjawab = soalList.filter(function (s) {
+    if (s.tipe === 'esai') return (jawaban[s.question_id] || '').trim() !== '';
+    return !!jawaban[s.question_id];
+  }).length;
+  const answeredText = document.getElementById('answeredText');
+  if (answeredText) answeredText.textContent = terjawab + ' dari ' + total + ' terjawab';
+  const fill = document.getElementById('examProgressFill');
+  if (fill) fill.style.width = (total > 0 ? (terjawab / total) * 100 : 0) + '%';
 }
 
 // ============================================================
@@ -568,53 +612,130 @@ function scheduleAutosave() {
 // ============================================================
 // ANTI CURANG
 // ============================================================
+let devtoolsTimer = null;
+let devtoolsOpen = false;
+let fsWarningShown = false;
+
+function isExamActive() {
+  return !!(examData && !examData._submitted);
+}
+
+function attemptFullscreen() {
+  if (document.fullscreenElement) return Promise.resolve();
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (!req) return Promise.resolve();
+  try {
+    return Promise.resolve(req.call(el));
+  } catch (e) {
+    return Promise.resolve();
+  }
+}
+
 function startAntiCheat() {
   // Deteksi pindah tab / jendela
   document.addEventListener('visibilitychange', handleAwayChange);
   window.addEventListener('blur', handleWindowBlur);
   window.addEventListener('focus', handleWindowFocus);
 
-  // Blokir klik kanan
+  // Blokir klik kanan, seleksi, copy/paste, dan drag (mencegah bagikan soal)
   window.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  ['copy', 'cut', 'paste', 'dragstart', 'drop'].forEach(function (evt) {
+    window.addEventListener(evt, function (e) {
+      e.preventDefault();
+      if (isExamActive()) showSnackbar('Aksi ' + evt + ' diblokir selama ujian.', 'warning');
+    });
+  });
+  document.addEventListener('selectstart', function (e) {
+    const t = e.target;
+    const tag = t && t.tagName ? t.tagName.toLowerCase() : '';
+    if (tag === 'textarea' || tag === 'input') return;
+    e.preventDefault();
+  });
+
   // Blokir shortcut umum (save/print/devtools/pintasan sistem)
   window.addEventListener('keydown', function (e) {
     const ctrl = e.ctrlKey || e.metaKey;
     const k = (e.key || '').toLowerCase();
-    if (ctrl && (k === 's' || k === 'p' || k === 'u' || k === 'i' || k === 'j' || k === 'c')) {
+    const devtoolsCombo = e.key === 'F12' ||
+      (ctrl && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) ||
+      (ctrl && k === 'u');
+    const blocked = devtoolsCombo || (ctrl && (k === 's' || k === 'p' || k === 'i' || k === 'j'));
+    if (blocked) {
       e.preventDefault();
+      e.stopPropagation();
+      if (isExamActive() && devtoolsCombo) registerViolation('devtools');
+      else if (isExamActive()) showSnackbar('Pintasan ini dinonaktifkan selama ujian.', 'warning');
+      return false;
     }
-    if (e.key === 'PrintScreen' || (e.key === 'p' && ctrl && e.shiftKey)) {
+    if (e.key === 'PrintScreen') {
       e.preventDefault();
+      if (isExamActive()) showSnackbar('Screenshot terdeteksi dan tercatat.', 'warning');
     }
   });
 
-  // Jika meninggalkan fullscreen saat ujian berlangsung => hitung sebagai pelanggaran.
-  // Kalau sekalian berpindah tab (visibilityState hidden) biar handler tab yang mencatat,
-  // supaya satu kali kepergian tidak dihitung dua kali.
+  // Cegah dialog print
+  window.addEventListener('beforeprint', function (e) {
+    e.preventDefault();
+    if (isExamActive()) showSnackbar('Fitur cetak dinonaktifkan selama ujian.', 'warning');
+  });
+
+  // Jika meninggalkan fullscreen saat ujian berlangsung => pelanggaran.
   document.addEventListener('fullscreenchange', function () {
-    if (!document.fullscreenElement && examData && !examData._submitted && document.visibilityState !== 'hidden') {
+    const banner = document.getElementById('fsBanner');
+    if (!document.fullscreenElement && isExamActive() && document.visibilityState !== 'hidden') {
+      if (banner) banner.classList.remove('hidden');
       registerViolation('fullscreen');
+    } else if (document.fullscreenElement && banner) {
+      banner.classList.add('hidden');
     }
   });
+
+  const fsReturnBtn = document.getElementById('fsReturnBtn');
+  if (fsReturnBtn) {
+    fsReturnBtn.addEventListener('click', function () {
+      attemptFullscreen().then(function () {
+        if (document.fullscreenElement) {
+          document.getElementById('fsBanner').classList.add('hidden');
+        } else {
+          showSnackbar('Browser menolak mode layar penuh. Tetap fokus pada ujian.', 'warning');
+        }
+      });
+    });
+  }
+
+  // Deteksi DevTools terbuka (selisih viewport) — hanya saat ujian aktif.
+  devtoolsTimer = setInterval(function () {
+    if (!isExamActive()) return;
+    const widthGap = window.outerWidth - window.innerWidth;
+    const heightGap = window.outerHeight - window.innerHeight;
+    const open = widthGap > 180 || heightGap > 180;
+    if (open && !devtoolsOpen) {
+      devtoolsOpen = true;
+      registerViolation('devtools');
+    } else if (!open && devtoolsOpen) {
+      devtoolsOpen = false;
+    }
+  }, 1200);
 }
 
 // ============================================================
 // PELANGGARAN (ANTI CURANG)
 // ============================================================
 
-// Setiap pergantian tab / kehilangan fokus LANGSUNG dicatat sebagai 1 pelanggaran
-// (tanpa jeda 5 detik seperti sebelumnya). Semua kejadian disimpan di cheatLog
-// sebagai bukti untuk guru. Setelah mencapai MAX_VIOLATIONS => ujian otomatis
-// dikumpulkan dan nilai dijadikan 0.
+// Setiap pergantian tab / kehilangan fokus LANGSUNG dicatat sebagai 1 pelanggaran.
+// Semua kejadian disimpan di cheatLog sebagai bukti untuk guru. Setelah mencapai
+// MAX_VIOLATIONS => ujian otomatis dikumpulkan dan nilai dijadikan 0.
 function registerViolation(jenis) {
-  if (examData && examData._submitted) return;
+  if (!isExamActive()) return;
   cheatLog.push({
-    jenis: jenis,                     // 'tab' | 'fullscreen'
+    jenis: jenis,                     // 'tab' | 'fullscreen' | 'devtools'
     waktu: new Date().toISOString(),
     durasi_detik: 0
   });
   cheatViolations++;
-  showCheatWarning(jenis === 'fullscreen');
+  updateIntegrityUI();
+  showCheatWarning(jenis);
 }
 
 // Mulai sesi "pergi". Hanya satu pelanggaran per sesi: blur dan visibilitychange
@@ -652,19 +773,43 @@ function handleAwayChange() {
   }
 }
 
-function showCheatWarning(fromFullscreen) {
+function violationLabel(jenis) {
+  if (jenis === 'fullscreen') return 'Mode layar penuh dihentikan';
+  if (jenis === 'devtools') return 'Alat pengembang (DevTools) terdeteksi';
+  return 'Berpindah tab / keluar dari halaman ujian';
+}
+
+function showCheatWarning(jenis) {
   const sisa = MAX_VIOLATIONS - cheatViolations;
-  const msg = fromFullscreen
-    ? 'Mode layar penuh dihentikan! '
-    : 'Terdeteksi pindah tab / keluar dari ujian! ';
   if (sisa <= 0) {
     showSnackbar('Ujian dikumpulkan otomatis karena melanggar aturan anti curang. Nilai dijadikan 0.', 'error');
+    if (devtoolsTimer) { clearInterval(devtoolsTimer); devtoolsTimer = null; }
     submitUjian(true, true);
     return;
   }
-  showSnackbar(msg + 'Peringatan ke-' + cheatViolations + ' dari ' + MAX_VIOLATIONS +
-    '. Sisa ' + sisa + ' peringatan lagi sebelum ujian dikumpulkan otomatis.', 'warning');
+  const label = violationLabel(jenis);
+  const msg = label + '. Peringatan ke-' + cheatViolations + ' dari ' + MAX_VIOLATIONS +
+    '. Sisa ' + sisa + ' peringatan lagi sebelum ujian dikumpulkan otomatis.';
+  showSnackbar(msg, 'warning');
+  showViolationModal(label, msg);
   saveDraft();
+}
+
+function showViolationModal(label, msg) {
+  const modal = document.getElementById('violationModal');
+  if (!modal) return;
+  const title = document.getElementById('violationTitle');
+  const text = document.getElementById('violationText');
+  const meter = document.getElementById('violationMeterFill');
+  if (title) title.textContent = label;
+  if (text) text.textContent = msg;
+  if (meter) {
+    const pct = Math.min(100, (cheatViolations / MAX_VIOLATIONS) * 100);
+    meter.style.width = pct + '%';
+    meter.className = pct >= 100 ? 'danger' : (pct >= 66 ? 'warning' : '');
+  }
+  modal.classList.add('active');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ============================================================
@@ -718,7 +863,7 @@ function closeSubmitModal() {
 async function submitUjian(autoSubmit, karenaCurang) {
   clearInterval(timerInterval);
   clearInterval(autoSaveTimer);
-  if (examData) examData._submitted = true;
+  setSaveStatus('Mengirim...', 'is-saving');
 
   const btn = document.getElementById('submitConfirmBtn');
   const text = document.getElementById('submitConfirmText');
@@ -793,6 +938,11 @@ async function submitUjian(autoSubmit, karenaCurang) {
 
   if (error) {
     console.error('submit error:', error.message);
+    setSaveStatus('Gagal mengirim', 'is-error');
+    if (examData) examData._submitted = false;
+    // Restart timer & autosave agar siswa bisa mencoba lagi tanpa kehilangan data.
+    startTimer();
+    scheduleAutosave();
     if (/row-level security|RLS|permission|policy/i.test(error.message)) {
       showSnackbar('Jawaban sudah pernah dikumpulkan. Mengarahkan ke hasil...', 'info');
       setTimeout(function () {
@@ -804,7 +954,10 @@ async function submitUjian(autoSubmit, karenaCurang) {
     return;
   }
 
+  if (examData) examData._submitted = true;
+  if (devtoolsTimer) { clearInterval(devtoolsTimer); devtoolsTimer = null; }
   clearDraft();
+  setSaveStatus('Terkirim', 'is-saved');
   showSnackbar('Ujian berhasil dikumpulkan.', 'success');
   setTimeout(function () {
     window.location.href = 'hasil.html?exam=' + examId;
@@ -824,6 +977,21 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('submitConfirmBtn').addEventListener('click', function () {
     submitUjian(false);
   });
+
+  const violationOk = document.getElementById('violationOkBtn');
+  if (violationOk) {
+    violationOk.addEventListener('click', function () {
+      document.getElementById('violationModal').classList.remove('active');
+    });
+  }
+  const violationModal = document.getElementById('violationModal');
+  if (violationModal) {
+    violationModal.addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('active');
+    });
+  }
+  setSaveStatus('Siap', 'is-saved');
+  updateIntegrityUI();
 
   document.getElementById('backBtn').addEventListener('click', function (e) {
     e.preventDefault();

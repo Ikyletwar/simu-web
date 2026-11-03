@@ -19,13 +19,34 @@
       <a href="dashboard-siswa.html" class="btn btn-ghost btn-sm" id="backBtn">
         <i data-lucide="x"></i><span>Keluar</span>
       </a>
-      <h2 id="examTitle">Ujian</h2>
+      <div class="exam-heading">
+        <h2 id="examTitle">Ujian</h2>
+        <span class="exam-sub" id="examSubtitle">Mode ujian aman</span>
+      </div>
     </div>
     <div class="exam-header-right">
-      <span class="hint" id="examProgress">Soal 1 dari 1</span>
-      <span class="badge timer-badge" id="examTimer">00:00</span>
+      <span class="exam-save" id="saveStatus" title="Status penyimpanan jawaban">
+        <span class="save-dot"></span><span id="saveStatusText">Tersimpan</span>
+      </span>
+      <span class="badge exam-violation hidden" id="violationPill" title="Pelanggaran anti-curang">
+        <i data-lucide="shield-alert"></i>
+        <span id="violationCount">0</span>/<span id="violationMax">3</span>
+      </span>
+      <span class="badge timer-badge" id="examTimer">
+        <i data-lucide="timer"></i>
+        <span id="examTimerText">00:00</span>
+      </span>
     </div>
   </header>
+  <div class="exam-progress" aria-hidden="true">
+    <div class="exam-progress-fill" id="examProgressFill"></div>
+  </div>
+
+  <div id="fsBanner" class="fs-banner hidden">
+    <i data-lucide="maximize"></i>
+    <span>Mode layar penuh wajib selama ujian.</span>
+    <button type="button" class="btn btn-sm btn-secondary" id="fsReturnBtn">Kembali Layar Penuh</button>
+  </div>
 
   <div id="offlineBanner" class="offline-banner">
     <i data-lucide="cloud-off"></i>
@@ -61,6 +82,14 @@
         <div class="exam-options" id="soalPilihan"></div>
       </div>
 
+      <div class="exam-toolbar">
+        <span class="exam-toolbar-item">
+          <i data-lucide="check-circle-2"></i>
+          <span id="answeredText">0 dari 0 terjawab</span>
+        </span>
+        <span class="exam-toolbar-item" id="examProgress">Soal 1 dari 1</span>
+      </div>
+
       <div class="exam-nav">
         <button class="btn btn-secondary" id="prevBtn">
           <i data-lucide="chevron-left"></i><span>Sebelumnya</span>
@@ -72,6 +101,19 @@
       </div>
 
       <div class="exam-question-map" id="questionMap"></div>
+    </div>
+  </div>
+
+  <!-- Modal peringatan anti-curang -->
+  <div class="modal-overlay" id="violationModal">
+    <div class="modal violation-modal">
+      <div class="violation-icon"><i data-lucide="shield-alert"></i></div>
+      <h3 class="modal-title" id="violationTitle">Pelanggaran terdeteksi</h3>
+      <p class="modal-text" id="violationText">Tetap fokus pada ujian.</p>
+      <div class="violation-meter"><div id="violationMeterFill"></div></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary btn-sm" id="violationOkBtn">Saya Mengerti</button>
+      </div>
     </div>
   </div>
 

@@ -5,6 +5,14 @@
 .exam-body {
   min-height: 100vh;
   background-color: var(--black-50);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.exam-body textarea,
+.exam-body input {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* ---------- Header sticky ---------- */
@@ -15,6 +23,7 @@
   background-color: var(--white);
   border-bottom: 1px solid var(--black-100);
   padding: 12px 24px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -35,6 +44,185 @@
   text-overflow: ellipsis;
 }
 
+.exam-heading {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.exam-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--black-300);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Progress ujian ---------- */
+.exam-progress {
+  position: sticky;
+  top: 64px;
+  z-index: 99;
+  height: 3px;
+  background-color: var(--black-100);
+}
+
+.exam-progress-fill {
+  height: 100%;
+  width: 0;
+  background-color: var(--black-900);
+  transition: width 0.25s ease;
+}
+
+/* ---------- Status simpan ---------- */
+.exam-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--black-300);
+  white-space: nowrap;
+}
+
+.save-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background-color: var(--black-300);
+  flex-shrink: 0;
+}
+
+.exam-save.is-saved .save-dot { background-color: var(--success); }
+.exam-save.is-saving .save-dot { background-color: var(--warning); animation: blink 1s step-start infinite; }
+.exam-save.is-error { color: var(--error); }
+.exam-save.is-error .save-dot { background-color: var(--error); }
+
+/* ---------- Peringatan pelanggaran ---------- */
+.exam-violation {
+  gap: 5px;
+  background-color: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+  padding: 5px 10px;
+}
+
+.exam-violation svg {
+  width: 14px;
+  height: 14px;
+}
+
+.exam-violation.is-danger {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  border-color: #FCA5A5;
+  animation: blink 1.2s step-start infinite;
+}
+
+/* ---------- Banner fullscreen ---------- */
+.fs-banner {
+  position: sticky;
+  top: 67px;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background-color: #FEF3C7;
+  border-bottom: 1px solid #FCD34D;
+  color: #92400E;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fs-banner svg {
+  width: 16px;
+  height: 16px;
+}
+
+.fs-banner .btn {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+  background-color: #fff;
+  border-color: #92400E;
+  color: #92400E;
+}
+
+/* ---------- Toolbar progres ---------- */
+.exam-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 4px;
+  padding: 10px 14px;
+  background-color: var(--white);
+  border: 1px solid var(--black-100);
+  border-radius: 10px;
+}
+
+.exam-toolbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--black-500);
+}
+
+.exam-toolbar-item svg {
+  width: 15px;
+  height: 15px;
+  color: var(--black-300);
+}
+
+/* ---------- Modal pelanggaran ---------- */
+.violation-modal {
+  text-align: center;
+}
+
+.violation-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 999px;
+  background-color: #FEF3C7;
+  color: #B45309;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.violation-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.violation-meter {
+  height: 7px;
+  border-radius: 999px;
+  background-color: var(--black-100);
+  overflow: hidden;
+  margin: 4px 0 22px;
+}
+
+.violation-meter > div {
+  height: 100%;
+  width: 0;
+  background-color: var(--warning);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.violation-meter > div.warning { background-color: #F97316; }
+.violation-meter > div.danger { background-color: var(--error); }
+
 .exam-header-right {
   display: flex;
   align-items: center;
@@ -47,6 +235,19 @@
   font-weight: 700;
   background-color: var(--black-900);
   color: var(--white);
+  gap: 6px;
+  padding: 6px 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-badge svg {
+  width: 15px;
+  height: 15px;
+  opacity: 0.8;
+}
+
+.timer-badge.warning {
+  background-color: var(--warning);
 }
 
 .timer-badge.danger {
@@ -90,16 +291,23 @@
   border-radius: 8px;
   padding: 16px;
   cursor: pointer;
-  transition: border-color 0.15s, background-color 0.15s;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
 }
 
 .exam-option:hover {
   background-color: var(--black-50);
+  border-color: var(--black-300);
+}
+
+.exam-option:focus-visible {
+  outline: 2px solid var(--black-900);
+  outline-offset: 2px;
 }
 
 .exam-option.selected {
   border-color: var(--black-900);
   background-color: var(--black-50);
+  box-shadow: inset 3px 0 0 var(--black-900);
 }
 
 .exam-option .option-key {
@@ -253,15 +461,16 @@
   transition: background-color 0.15s, border-color 0.15s;
 }
 
+.qmap-item.answered {
+  background-color: #ECFDF5;
+  border-color: #A7F3D0;
+  color: #065F46;
+}
+
 .qmap-item.current {
   border-color: var(--black-900);
   background-color: var(--black-900);
   color: var(--white);
-}
-
-.qmap-item.answered {
-  background-color: var(--black-100);
-  border-color: var(--black-100);
 }
 
 .qmap-item.current.answered {
@@ -297,5 +506,56 @@
 
   #backBtn span {
     display: none;
+  }
+}
+/* ---------- Penyesuaian layar kecil untuk elemen baru ---------- */
+@media (max-width: 800px) {
+  .exam-header {
+    gap: 8px;
+  }
+
+  .exam-header-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .exam-heading {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .exam-header-left h2 {
+    max-width: none;
+  }
+
+  .exam-save,
+  .exam-sub {
+    display: none;
+  }
+
+  .exam-header-right {
+    gap: 6px;
+  }
+
+  .exam-progress {
+    top: 60px;
+  }
+
+  .fs-banner {
+    top: 63px;
+    font-size: 12px;
+  }
+
+  .exam-toolbar {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .exam-toolbar-item {
+    font-size: 11px;
+  }
+
+  .exam-violation {
+    padding: 4px 8px;
   }
 }

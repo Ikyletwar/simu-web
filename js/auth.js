@@ -211,8 +211,7 @@ function terapkanAksesMenu(profile) {
   return true;
 }
 
-function tampilkanBlokirMapel() {
-  if (document.getElementById('mapelBlockOverlay')) return;
+function tampilkanBlokirMapel() {  if (document.getElementById('mapelBlockOverlay')) return;
   const el = document.createElement('div');
   el.id = 'mapelBlockOverlay';
   el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
@@ -226,6 +225,22 @@ function tampilkanBlokirMapel() {
   document.body.appendChild(el);
   const btn = document.getElementById('mapelBlockLogout');
   if (btn) btn.addEventListener('click', logout);
+}
+
+// Isi elemen topbar bersama (avatar + label role) agar semua halaman konsisten.
+function updateShellUser(profile) {
+  if (!profile) return;
+  const roleEl = document.getElementById('userRole');
+  if (roleEl) {
+    roleEl.textContent = profile.role === 'guru'
+      ? 'Guru'
+      : (profile.role === 'admin' ? 'Administrator' : 'Siswa');
+  }
+  const av = document.getElementById('userAvatar');
+  if (av) {
+    const nama = String(profile.nama || profile.role || '?').trim();
+    av.textContent = nama.charAt(0).toUpperCase() || '?';
+  }
 }
 
 async function guard(role) {
@@ -278,6 +293,7 @@ async function guard(role) {
 
   if (!terapkanAksesMenu(profile)) return null;
 
+  updateShellUser(profile);
   return profile;
 }
 
